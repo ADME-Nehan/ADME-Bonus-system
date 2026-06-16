@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { UserRole } from '@/lib/types';
+import { UserRole } from '../lib/type';
 
 export function AppShell({
   role,

@@ -22,7 +22,7 @@ import {
   useState,
 } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { UserProfile, UserRole } from '@/lib/types';
+import { UserProfile, UserRole } from '../lib/type';
 
 const ADMIN_EMAILS = ['tech@adme.group', 'admin.adme@gmail.com'];
 
