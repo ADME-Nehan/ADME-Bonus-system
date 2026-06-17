@@ -50,7 +50,8 @@ import {
   Project,
   Task,
   UserProfile,
-} from '../../lib/type';
+  UserRole,
+} from '@/lib/type';
 
 type AdminTab = 'projects' | 'dashboard' | 'users' | 'payments';
 type DashboardMode = 'breakdown' | 'disbursement';
@@ -698,7 +699,7 @@ export function AdminApp() {
           <button
             key={key}
             onClick={() => setActiveTab(key as AdminTab)}
-            className={`rounded-2xl px-5 py-2 text-sm font-black ${
+            className={`shrink-0 rounded-2xl px-5 py-2 text-sm font-black ${
               activeTab === key
                 ? 'bg-blue-500/20 text-blue-200 shadow-sm'
                 : 'text-slate-400 hover:text-slate-100'
@@ -829,21 +830,21 @@ function ProjectsPanel({
 }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80 shadow-2xl shadow-black/20">
-      <div className="flex flex-col gap-4 border-b border-slate-700/50 bg-slate-950/30 p-6 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 border-b border-slate-700/50 bg-slate-950/30 p-6 lg:flex-row lg:items-center lg:justify-between">
         <SectionTitle
           icon={<Folder className="h-5 w-5" />}
           title="Projects and Milestones"
         />
 
-        <form onSubmit={onAddProject} className="flex gap-2">
+        <form onSubmit={onAddProject} className="grid gap-2 sm:grid-cols-[1fr_auto]">
           <input
             value={projectName}
             onChange={(event) => onProjectNameChange(event.target.value)}
             placeholder="New Project Name"
-            className="h-12 w-72 rounded-2xl border border-slate-700 px-4 text-sm outline-none"
+            className="h-12 rounded-2xl border border-slate-700 px-4 text-sm outline-none"
           />
 
-          <button className="flex h-12 items-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white">
+          <button className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white">
             <Plus className="h-4 w-4" />
             Add
           </button>
@@ -918,10 +919,11 @@ function ProjectsPanel({
                           : 'border-slate-700/50 bg-slate-900/70'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Folder className="h-4 w-4 text-blue-300" />
+
                             <h3 className="text-lg font-black text-slate-50">
                               {milestone.name}
                             </h3>
@@ -1071,7 +1073,7 @@ function DashboardPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-50">
             Dashboard: {selectedMilestone.name}
@@ -1090,7 +1092,7 @@ function DashboardPanel({
             disabled={selectedMilestoneIsCompleted}
             value={selectedMilestone.revenue || ''}
             onChange={(event) => onRevenueChange(Number(event.target.value) || 0)}
-            className="mt-1 w-64 bg-transparent text-2xl font-black text-blue-300 outline-none disabled:text-slate-500"
+            className="mt-1 w-full bg-transparent text-2xl font-black text-blue-300 outline-none disabled:text-slate-500 lg:w-64"
           />
         </div>
       </div>
@@ -1101,10 +1103,10 @@ function DashboardPanel({
         onCompleteMilestone={onCompleteMilestone}
       />
 
-      <div className="inline-flex rounded-2xl border border-slate-700/50 bg-slate-900/60 p-1">
+      <div className="inline-flex max-w-full overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-900/60 p-1">
         <button
           onClick={() => setDashboardMode('breakdown')}
-          className={`rounded-xl px-6 py-2 text-xs font-black ${
+          className={`shrink-0 rounded-xl px-6 py-2 text-xs font-black ${
             dashboardMode === 'breakdown'
               ? 'bg-blue-500/20 text-blue-200'
               : 'text-slate-400'
@@ -1115,7 +1117,7 @@ function DashboardPanel({
 
         <button
           onClick={() => setDashboardMode('disbursement')}
-          className={`rounded-xl px-6 py-2 text-xs font-black ${
+          className={`shrink-0 rounded-xl px-6 py-2 text-xs font-black ${
             dashboardMode === 'disbursement'
               ? 'bg-blue-500/20 text-blue-200'
               : 'text-slate-400'
@@ -1127,13 +1129,13 @@ function DashboardPanel({
 
       {dashboardMode === 'breakdown' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-black text-slate-50">
               Financial Breakdown
             </h2>
 
             {selectedMilestone.status === 'completed' && (
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200">
+              <span className="w-fit rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200">
                 Completed
               </span>
             )}
@@ -1156,7 +1158,7 @@ function DashboardPanel({
                 </div>
               </div>
 
-              <div className="mt-4 flex justify-between border-t border-slate-700 pt-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <div className="mt-4 flex justify-between gap-3 border-t border-slate-700 pt-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <span>
                   Mgmt: LKR {formatLKR(selectedPools.managementPool, 0)}
                 </span>
@@ -1190,39 +1192,49 @@ function DashboardPanel({
                 </span>
               </div>
 
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
-                    <th className="px-6 py-4">Stakeholder</th>
-                    <th className="px-6 py-4 text-right">Amount (LKR)</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-800">
-                  {(managerUsers.length > 0
-                    ? managerUsers
-                    : [{ id: 'none', name: 'No Name', email: '-' } as UserProfile]
-                  ).map((manager) => (
-                    <tr key={manager.id}>
-                      <td className="px-6 py-5">
-                        <div className="font-bold text-slate-100">
-                          {manager.name || 'No Name'}
-                        </div>
-                        <div className="text-[10px] uppercase text-slate-500">
-                          {manager.email}
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-right text-lg font-black text-slate-50">
-                        {formatLKR(
-                          managerUsers.length > 0
-                            ? selectedPools.managementPool / managerUsers.length
-                            : selectedPools.managementPool
-                        )}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+                      <th className="px-6 py-4">Stakeholder</th>
+                      <th className="px-6 py-4 text-right">Amount (LKR)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-800">
+                    {(managerUsers.length > 0
+                      ? managerUsers
+                      : [
+                          {
+                            id: 'none',
+                            name: 'No Name',
+                            email: '-',
+                            role: 'user',
+                          } as UserProfile,
+                        ]
+                    ).map((manager) => (
+                      <tr key={manager.id}>
+                        <td className="px-6 py-5">
+                          <div className="font-bold text-slate-100">
+                            {manager.name || 'No Name'}
+                          </div>
+                          <div className="text-[10px] uppercase text-slate-500">
+                            {manager.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-right text-lg font-black text-slate-50">
+                          {formatLKR(
+                            managerUsers.length > 0
+                              ? selectedPools.managementPool /
+                                  managerUsers.length
+                              : selectedPools.managementPool
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-6">
@@ -1341,7 +1353,7 @@ function MilestoneTaskNotification({
 
   return (
     <div className={`rounded-3xl border p-6 ${cardClass}`}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
           {progress.allTasksDone ? (
             <CheckCircle2 className="mt-1 h-6 w-6" />
@@ -1380,7 +1392,8 @@ function MilestoneTaskNotification({
 
             {progress.invalidTasks > 0 && (
               <p className="mt-2 text-sm font-black text-red-200">
-                {progress.invalidTasks} task(s) have missing user or invalid points.
+                {progress.invalidTasks} task(s) have missing user or invalid
+                points.
               </p>
             )}
           </div>
@@ -1408,7 +1421,7 @@ function AllocationRow({
   color: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-slate-950/50 p-5">
+    <div className="flex flex-col gap-2 rounded-2xl bg-slate-950/50 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
         <span className={`h-9 w-2 rounded-full ${color}`} />
         <span className="text-sm font-black uppercase text-slate-300">
@@ -1479,7 +1492,7 @@ function OperationalTeamPool({
 
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
-      <div className="flex flex-col gap-4 border-b border-slate-700/50 p-6 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 border-b border-slate-700/50 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-xl font-black text-slate-50">
             <Users className="h-5 w-5 text-blue-300" />
@@ -1494,7 +1507,7 @@ function OperationalTeamPool({
         {!selectedMilestoneIsCompleted && (
           <button
             onClick={() => onAddCategory()}
-            className="flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white"
           >
             <Plus className="h-4 w-4" />
             Add Category
@@ -1503,7 +1516,7 @@ function OperationalTeamPool({
       </div>
 
       {!selectedMilestoneIsCompleted && (
-        <div className="grid gap-3 border-b border-slate-700/50 bg-slate-950/30 p-5 md:grid-cols-[1fr_120px_1fr_120px_180px_auto]">
+        <div className="grid gap-3 border-b border-slate-700/50 bg-slate-950/30 p-5 xl:grid-cols-[1fr_120px_1fr_120px_180px_auto]">
           <input
             value={categoryName}
             onChange={(event) => onCategoryNameChange(event.target.value)}
@@ -1715,67 +1728,238 @@ function OperationalTeamPool({
 }
 
 function UsersPanel({ users }: { users: UserProfile[] }) {
+  const adminCount = users.filter((user) => user.role === 'admin').length;
+  const normalUserCount = users.filter((user) => user.role === 'user').length;
+  const managerCount = users.filter((user) => user.isManager).length;
+
+  async function updateUserRole(user: UserProfile, newRole: UserRole) {
+    if (user.role === newRole) return;
+
+    if (user.role === 'admin' && newRole === 'user' && adminCount <= 1) {
+      alert('You cannot remove the last admin. Make another user admin first.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Change ${user.name || user.email} role to ${newRole.toUpperCase()}?`
+    );
+
+    if (!confirmed) return;
+
+    await updateDoc(doc(db, 'users', user.id), {
+      role: newRole,
+      isManager: newRole === 'admin' ? true : user.isManager || false,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function toggleManager(user: UserProfile) {
+    await updateDoc(doc(db, 'users', user.id), {
+      isManager: !user.isManager,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
-      <div className="border-b border-slate-700/50 p-6">
-        <SectionTitle
-          icon={<Users className="h-5 w-5" />}
-          title="Users"
-          subtitle="View users and manage manager/stakeholder flag."
-        />
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            Total Users
+          </p>
+          <h2 className="mt-2 text-3xl font-black text-slate-50">
+            {users.length}
+          </h2>
+        </div>
+
+        <div className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            Admins
+          </p>
+          <h2 className="mt-2 text-3xl font-black text-slate-50">
+            {adminCount}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Users: {normalUserCount}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            Managers
+          </p>
+          <h2 className="mt-2 text-3xl font-black text-slate-50">
+            {managerCount}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Included in management distribution
+          </p>
+        </div>
       </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
-            <th className="px-6 py-4">User</th>
-            <th className="px-6 py-4">Role</th>
-            <th className="px-6 py-4">Manager</th>
-          </tr>
-        </thead>
+      <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
+        <div className="border-b border-slate-700/50 p-6">
+          <SectionTitle
+            icon={<Users className="h-5 w-5" />}
+            title="Users & Permissions"
+            subtitle="Change each person as Admin/User and Manager/Normal User."
+          />
+        </div>
 
-        <tbody className="divide-y divide-slate-800">
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[950px] text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+                <th className="px-6 py-4">Person</th>
+                <th className="px-6 py-4">Current Role</th>
+                <th className="px-6 py-4">Change Role</th>
+                <th className="px-6 py-4">Manager Access</th>
+                <th className="px-6 py-4">Permission Summary</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-800">
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-6 py-5">
+                    <div className="font-black text-slate-100">
+                      {user.name || 'No Name'}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {user.email}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-5">
+                    <RoleBadge role={user.role} />
+                  </td>
+
+                  <td className="px-6 py-5">
+                    <select
+                      value={user.role}
+                      onChange={(event) =>
+                        updateUserRole(user, event.target.value as UserRole)
+                      }
+                      className="h-11 w-44 rounded-xl border border-slate-700 px-3 text-sm font-bold outline-none"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+
+                  <td className="px-6 py-5">
+                    <button
+                      onClick={() => toggleManager(user)}
+                      className={`rounded-xl px-4 py-2 text-xs font-black ${
+                        user.isManager
+                          ? 'bg-white text-black'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {user.isManager ? 'Manager' : 'Normal User'}
+                    </button>
+                  </td>
+
+                  <td className="px-6 py-5">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-slate-700 px-3 py-1 text-[10px] font-black uppercase text-slate-300">
+                        {user.role === 'admin'
+                          ? 'Full Admin Access'
+                          : 'User Dashboard Access'}
+                      </span>
+
+                      {user.isManager && (
+                        <span className="rounded-full border border-slate-700 px-3 py-1 text-[10px] font-black uppercase text-slate-300">
+                          Management Split
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-10 text-center text-slate-500">
+                    No users found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid gap-4 p-4 lg:hidden">
           {users.map((user) => (
-            <tr key={user.id}>
-              <td className="px-6 py-4">
-                <div className="font-bold text-slate-100">{user.name}</div>
-                <div className="text-xs text-slate-500">{user.email}</div>
-              </td>
+            <div
+              key={user.id}
+              className="rounded-2xl border border-slate-700/50 bg-slate-950/40 p-4"
+            >
+              <div className="mb-4">
+                <div className="font-black text-slate-100">
+                  {user.name || 'No Name'}
+                </div>
+                <div className="mt-1 break-all text-xs text-slate-500">
+                  {user.email}
+                </div>
+              </div>
 
-              <td className="px-6 py-4">
+              <div className="mb-4 flex flex-wrap gap-2">
                 <RoleBadge role={user.role} />
-              </td>
 
-              <td className="px-6 py-4">
-                <button
-                  onClick={() =>
-                    updateDoc(doc(db, 'users', user.id), {
-                      isManager: !user.isManager,
-                      updatedAt: serverTimestamp(),
-                    })
-                  }
-                  className={`rounded-xl px-4 py-2 text-xs font-black ${
-                    user.isManager
-                      ? 'bg-emerald-500/15 text-emerald-200'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {user.isManager ? 'Manager' : 'Normal User'}
-                </button>
-              </td>
-            </tr>
+                {user.isManager && (
+                  <span className="rounded-full border border-slate-700 px-3 py-1 text-[10px] font-black uppercase text-slate-300">
+                    Manager
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Role
+                  </label>
+
+                  <select
+                    value={user.role}
+                    onChange={(event) =>
+                      updateUserRole(user, event.target.value as UserRole)
+                    }
+                    className="mt-2 h-11 rounded-xl border border-slate-700 px-3 text-sm font-bold outline-none"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Manager
+                  </label>
+
+                  <button
+                    onClick={() => toggleManager(user)}
+                    className={`mt-2 h-11 w-full rounded-xl px-4 text-xs font-black ${
+                      user.isManager
+                        ? 'bg-white text-black'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {user.isManager ? 'Manager' : 'Normal User'}
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
 
           {users.length === 0 && (
-            <tr>
-              <td colSpan={3} className="p-10 text-center text-slate-500">
-                No users found.
-              </td>
-            </tr>
+            <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-500">
+              No users found.
+            </div>
           )}
-        </tbody>
-      </table>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1815,7 +1999,7 @@ function PaymentsPanel({
 }) {
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MoneyCard title="Pending" amount={paymentStats.pending} />
         <MoneyCard title="Approved" amount={paymentStats.approved} />
         <MoneyCard title="Paid" amount={paymentStats.paid} />
@@ -1877,57 +2061,59 @@ function PaymentsPanel({
           />
         </div>
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
-              <th className="px-6 py-4">User</th>
-              <th className="px-6 py-4 text-right">Pending</th>
-              <th className="px-6 py-4 text-right">Approved</th>
-              <th className="px-6 py-4 text-right">Paid</th>
-              <th className="px-6 py-4 text-right">Total Earned</th>
-              <th className="px-6 py-4 text-right">This Month To Spend</th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-slate-800">
-            {userEarnings.map((item) => (
-              <tr key={item.userId}>
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-100">{item.name}</div>
-                  <div className="text-xs text-slate-500">{item.email}</div>
-                </td>
-
-                <td className="px-6 py-4 text-right font-black text-amber-200">
-                  LKR {formatLKR(item.pending)}
-                </td>
-
-                <td className="px-6 py-4 text-right font-black text-blue-200">
-                  LKR {formatLKR(item.approved)}
-                </td>
-
-                <td className="px-6 py-4 text-right font-black text-emerald-200">
-                  LKR {formatLKR(item.paid)}
-                </td>
-
-                <td className="px-6 py-4 text-right font-black text-slate-50">
-                  LKR {formatLKR(item.total)}
-                </td>
-
-                <td className="px-6 py-4 text-right font-black text-indigo-200">
-                  LKR {formatLKR(item.thisMonthToSpend)}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+                <th className="px-6 py-4">User</th>
+                <th className="px-6 py-4 text-right">Pending</th>
+                <th className="px-6 py-4 text-right">Approved</th>
+                <th className="px-6 py-4 text-right">Paid</th>
+                <th className="px-6 py-4 text-right">Total Earned</th>
+                <th className="px-6 py-4 text-right">This Month To Spend</th>
               </tr>
-            ))}
+            </thead>
 
-            {userEarnings.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-10 text-center text-slate-500">
-                  No earnings yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            <tbody className="divide-y divide-slate-800">
+              {userEarnings.map((item) => (
+                <tr key={item.userId}>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-100">{item.name}</div>
+                    <div className="text-xs text-slate-500">{item.email}</div>
+                  </td>
+
+                  <td className="px-6 py-4 text-right font-black text-amber-200">
+                    LKR {formatLKR(item.pending)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right font-black text-blue-200">
+                    LKR {formatLKR(item.approved)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right font-black text-emerald-200">
+                    LKR {formatLKR(item.paid)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right font-black text-slate-50">
+                    LKR {formatLKR(item.total)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right font-black text-indigo-200">
+                    LKR {formatLKR(item.thisMonthToSpend)}
+                  </td>
+                </tr>
+              ))}
+
+              {userEarnings.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-10 text-center text-slate-500">
+                    No earnings yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <BonusFlowPanel
