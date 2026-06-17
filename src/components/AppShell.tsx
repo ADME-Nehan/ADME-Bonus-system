@@ -78,10 +78,6 @@ export function AppShell({
         <div className="mb-6 rounded-3xl border border-slate-700/40 bg-slate-900/45 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-6 lg:mb-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-200 sm:px-4 sm:text-xs">
-                <Sparkles className="h-3.5 w-3.5" />
-                Financial Management System
-              </div>
 
               <h2 className="finance-gradient-text text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
                 Bonus Payment Dashboard
