@@ -9,36 +9,21 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import {
-  CheckCircle2,
-  ClipboardList,
-  ReceiptText,
-} from 'lucide-react';
+import { CheckCircle2, ClipboardList } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { PaymentStatusBadge, SectionTitle } from '@/components/AppShell';
+import { SectionTitle } from '@/components/AppShell';
+import { BonusFlowPanel } from '@/components/BonusFlowPanel';
 import { MoneyCard } from '@/components/MoneyCard';
 import { useAuth } from '@/context/AuthContext';
-import {
-  calculateTaskBonus,
-  formatPaymentMonth,
-} from '@/lib/bonus';
 import { db } from '@/lib/firebase';
 import { formatLKR } from '@/lib/money';
-import {
-  Category,
-  Milestone,
-  PaymentRecord,
-  Task,
-} from '../../lib/type';
+import { PaymentRecord, Task } from '@/lib/types';
 
 export function UserApp() {
   const { firebaseUser } = useAuth();
 
   const [myTasks, setMyTasks] = useState<Task[]>([]);
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
 
   useEffect(() => {
@@ -75,48 +60,6 @@ export function UserApp() {
       setMyTasks(rows);
     });
 
-    const unsubAllTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      setAllTasks(
-        snapshot.docs.map(
-          (item) =>
-            ({
-              id: item.id,
-              ...item.data(),
-            }) as Task
-        )
-      );
-    });
-
-    const unsubCategories = onSnapshot(
-      collection(db, 'categories'),
-      (snapshot) => {
-        setCategories(
-          snapshot.docs.map(
-            (item) =>
-              ({
-                id: item.id,
-                ...item.data(),
-              }) as Category
-          )
-        );
-      }
-    );
-
-    const unsubMilestones = onSnapshot(
-      collection(db, 'milestones'),
-      (snapshot) => {
-        setMilestones(
-          snapshot.docs.map(
-            (item) =>
-              ({
-                id: item.id,
-                ...item.data(),
-              }) as Milestone
-          )
-        );
-      }
-    );
-
     const unsubPayments = onSnapshot(paymentQuery, (snapshot) => {
       const rows = snapshot.docs.map(
         (item) =>
@@ -138,9 +81,6 @@ export function UserApp() {
 
     return () => {
       unsubMyTasks();
-      unsubAllTasks();
-      unsubCategories();
-      unsubMilestones();
       unsubPayments();
     };
   }, [firebaseUser?.uid]);
@@ -167,25 +107,11 @@ export function UserApp() {
       return Number(task.bonusAmount || 0);
     }
 
-    const milestone = milestones.find(
-      (item) => item.id === task.milestoneId
-    );
-
-    const category = categories.find(
-      (item) => item.id === task.categoryId
-    );
-
-    if (!milestone || !category) {
-      return 0;
+    if (Number(task.estimatedBonusAmount || 0) > 0) {
+      return Number(task.estimatedBonusAmount || 0);
     }
 
-    return calculateTaskBonus({
-      milestone,
-      category,
-      task,
-      categories,
-      tasks: allTasks,
-    });
+    return 0;
   }
 
   function getTaskPaymentStatus(task: Task) {
@@ -258,10 +184,8 @@ export function UserApp() {
       activeTaskBonus,
       completedTaskBonus,
       total: pending + approved + paid,
-      activeTasks: myTasks.filter((item) => item.status === 'active').length,
-      completedTasks: myTasks.filter((item) => item.status === 'completed').length,
     };
-  }, [payments, myTasks, categories, milestones, allTasks]);
+  }, [payments, myTasks]);
 
   return (
     <div className="space-y-6">
@@ -302,7 +226,7 @@ export function UserApp() {
           <SectionTitle
             icon={<ClipboardList className="h-6 w-6 text-blue-600" />}
             title="My Tasks"
-            subtitle="You can mark your assigned task as done and see the bonus preview."
+            subtitle="You can only see your own assigned tasks."
           />
         </div>
 
@@ -327,8 +251,7 @@ export function UserApp() {
                 const bonusAmount = getTaskBonusAmount(task);
                 const taskPayments = getTaskPayments(task.id);
                 const hasPayments = taskPayments.length > 0;
-                const canMarkDone =
-                  task.status === 'active' && !task.locked;
+                const canMarkDone = task.status === 'active' && !task.locked;
 
                 return (
                   <tr key={task.id} className="hover:bg-slate-50/60">
@@ -350,7 +273,9 @@ export function UserApp() {
                       </div>
 
                       <div className="text-xs text-slate-400">
-                        {task.locked ? 'Locked by completed milestone' : 'Editable until milestone completion'}
+                        {task.locked
+                          ? 'Locked by completed milestone'
+                          : 'Editable until milestone completion'}
                       </div>
                     </td>
 
@@ -394,7 +319,9 @@ export function UserApp() {
                           ? 'Payment created'
                           : task.status === 'completed'
                             ? 'Ready for payment'
-                            : 'Expected bonus'}
+                            : Number(task.estimatedBonusAmount || 0) > 0
+                              ? 'Expected bonus'
+                              : 'Not calculated'}
                       </div>
                     </td>
 
@@ -414,10 +341,7 @@ export function UserApp() {
 
               {myTasks.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="p-10 text-center text-slate-400"
-                  >
+                  <td colSpan={9} className="p-10 text-center text-slate-400">
                     No assigned tasks yet.
                   </td>
                 </tr>
@@ -427,78 +351,15 @@ export function UserApp() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-6">
-          <SectionTitle
-            icon={<ReceiptText className="h-6 w-6 text-indigo-600" />}
-            title="My 3-Month Bonus Payments"
-            subtitle="After admin completes the milestone, every task payment is split into Month 1, Month 2, and Month 3."
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-widest text-slate-400">
-                <th className="px-6 py-4">Task</th>
-                <th className="px-6 py-4">Installment</th>
-                <th className="px-6 py-4">Due Month</th>
-                <th className="px-6 py-4 text-right">Amount</th>
-                <th className="px-6 py-4">Status</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100">
-              {payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-800">
-                      {payment.taskName}
-                    </div>
-
-                    <div className="text-xs text-slate-400">
-                      {payment.projectName} · {payment.milestoneName}
-                    </div>
-
-                    <div className="text-xs text-slate-400">
-                      Task total: LKR {formatLKR(payment.taskTotalAmount)}
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase text-indigo-700">
-                      Month {payment.installmentNo}/{payment.totalInstallments}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4 font-bold text-slate-600">
-                    {formatPaymentMonth(payment)}
-                  </td>
-
-                  <td className="px-6 py-4 text-right font-black">
-                    LKR {formatLKR(payment.amount)}
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <PaymentStatusBadge status={payment.status} />
-                  </td>
-                </tr>
-              ))}
-
-              {payments.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="p-10 text-center text-slate-400"
-                  >
-                    No bonus payments yet. Mark tasks as done and wait for admin to complete the milestone.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <BonusFlowPanel
+        payments={payments}
+        readonly
+        title="My 3-Month Bonus Payments"
+        subtitle="Month-wise view of your own bonus payments."
+        showFilters={false}
+        showExport={false}
+        emptyMessage="No bonus payments yet. Mark tasks as done and wait for admin to complete the milestone."
+      />
     </div>
   );
 }
