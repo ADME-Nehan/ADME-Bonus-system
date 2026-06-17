@@ -688,7 +688,7 @@ export function AdminApp() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-700/40 bg-slate-900/50 p-2 backdrop-blur-xl">
+      <div className="flex gap-2 overflow-x-auto rounded-3xl border border-slate-700/40 bg-slate-900/50 p-2 backdrop-blur-xl">
         {[
           ['projects', 'Projects'],
           ['dashboard', 'Dashboard'],
@@ -881,7 +881,7 @@ function ProjectsPanel({
               <div className="p-5">
                 <form
                   onSubmit={onAddMilestone}
-                  className="mb-6 grid gap-3 rounded-2xl border border-slate-700/50 bg-slate-950/40 p-4 md:grid-cols-[1fr_180px_auto]"
+                  className="mb-6 grid gap-3 rounded-2xl border border-slate-700/50 bg-slate-950/40 p-4 lg:grid-cols-[1fr_180px_auto]"
                 >
                   <input
                     value={milestoneName}
@@ -908,7 +908,7 @@ function ProjectsPanel({
                   </button>
                 </form>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   {projectMilestones.map((milestone) => (
                     <div
                       key={milestone.id}
@@ -1139,7 +1139,7 @@ function DashboardPanel({
             )}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-3xl border border-slate-700/50 bg-slate-950 p-6 shadow-2xl shadow-black/20">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1177,7 +1177,7 @@ function DashboardPanel({
             />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-2">
             <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
               <div className="flex items-center justify-between border-b border-slate-700/50 p-6">
                 <h3 className="flex items-center gap-2 text-lg font-black text-slate-50">
@@ -1843,7 +1843,7 @@ function PaymentsPanel({
           />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <MoneyCard
             title="This Month Pending"
             amount={paymentStats.thisMonthPending}

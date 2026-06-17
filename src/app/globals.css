@@ -11,14 +11,14 @@
   --border-strong: rgba(96, 165, 250, 0.38);
   --muted: #94a3b8;
   --blue: #60a5fa;
-  --blue-strong: #2563eb;
   --purple: #8b5cf6;
   --cyan: #22d3ee;
   --green: #34d399;
   --yellow: #fbbf24;
   --red: #fb7185;
   --shadow-card: 0 22px 70px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(96, 165, 250, 0.16),
+  --shadow-glow:
+    0 0 0 1px rgba(96, 165, 250, 0.16),
     0 22px 70px rgba(37, 99, 235, 0.16);
 }
 
@@ -34,6 +34,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.35), transparent 28%),
     radial-gradient(circle at 88% 18%, rgba(139, 92, 246, 0.22), transparent 28%),
@@ -78,6 +79,8 @@ button:disabled {
 input,
 select,
 textarea {
+  width: 100%;
+  max-width: 100%;
   color: #e5eefc;
   background: rgba(2, 6, 23, 0.72) !important;
   border-color: rgba(148, 163, 184, 0.22) !important;
@@ -115,7 +118,8 @@ table {
   border-collapse: collapse;
 }
 
-/* Main financial dark overrides */
+/* Dark financial dashboard overrides */
+
 .bg-white {
   background-color: var(--panel) !important;
 }
@@ -164,11 +168,14 @@ table {
 
 .border-slate-100,
 .border-slate-200,
-.border-slate-300 {
+.border-slate-300,
+.border-slate-700,
+.border-slate-800 {
   border-color: var(--border) !important;
 }
 
-.divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
   border-color: rgba(148, 163, 184, 0.14) !important;
 }
 
@@ -176,12 +183,17 @@ table {
   box-shadow: var(--shadow-card) !important;
 }
 
-/* Cards / panels */
+/* Card panels */
+
 section.rounded-3xl,
 form.rounded-3xl,
 div.rounded-3xl.border {
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.76)) !important;
+    linear-gradient(
+      180deg,
+      rgba(15, 23, 42, 0.94),
+      rgba(15, 23, 42, 0.76)
+    ) !important;
   border-color: var(--border) !important;
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(18px);
@@ -201,6 +213,11 @@ div.rounded-3xl.border:hover {
 }
 
 /* Tables */
+
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
 thead tr {
   background: rgba(2, 6, 23, 0.45) !important;
 }
@@ -223,7 +240,8 @@ tfoot tr {
   background-color: rgba(15, 23, 42, 0.98) !important;
 }
 
-/* Dashboard color cards */
+/* Color cards */
+
 .bg-blue-50 {
   background: rgba(37, 99, 235, 0.16) !important;
 }
@@ -295,7 +313,8 @@ tfoot tr {
   border-color: rgba(248, 113, 113, 0.34) !important;
 }
 
-/* Strong action buttons */
+/* Buttons */
+
 .bg-blue-600 {
   background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
   color: white !important;
@@ -319,46 +338,8 @@ tfoot tr {
   color: white !important;
 }
 
-/* Money card shine */
-.rounded-3xl.p-6.border {
-  position: relative;
-  overflow: hidden;
-}
+/* Utilities */
 
-.rounded-3xl.p-6.border::after {
-  content: "";
-  position: absolute;
-  top: -70%;
-  left: -80%;
-  width: 60%;
-  height: 240%;
-  background: linear-gradient(
-    120deg,
-    transparent,
-    rgba(255, 255, 255, 0.13),
-    transparent
-  );
-  transform: rotate(18deg);
-  transition: left 0.75s ease;
-  pointer-events: none;
-}
-
-.rounded-3xl.p-6.border:hover::after {
-  left: 135%;
-}
-
-/* Badges */
-span.rounded-full {
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-span.rounded-full:hover {
-  transform: scale(1.04);
-}
-
-/* Financial custom utility classes */
 .finance-shell {
   min-height: 100vh;
   background:
@@ -390,10 +371,6 @@ span.rounded-full:hover {
   letter-spacing: -0.04em;
 }
 
-.finance-muted {
-  color: #94a3b8;
-}
-
 .finance-gradient-text {
   background: linear-gradient(135deg, #60a5fa, #a78bfa, #22d3ee);
   -webkit-background-clip: text;
@@ -401,26 +378,8 @@ span.rounded-full:hover {
   color: transparent;
 }
 
-.finance-pill {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(15, 23, 42, 0.78);
-  color: #cbd5e1;
-}
+/* Better scrollbars */
 
-.finance-pill-active {
-  border: 1px solid rgba(96, 165, 250, 0.4);
-  background: rgba(37, 99, 235, 0.18);
-  color: #93c5fd;
-  box-shadow: 0 0 30px rgba(37, 99, 235, 0.15);
-}
-
-/* Smooth page entering */
-main,
-body > div {
-  animation: pageFade 0.35s ease both;
-}
-
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -437,6 +396,13 @@ body > div {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #60a5fa, #a78bfa);
+}
+
+/* Animations */
+
+main,
+body > div {
+  animation: pageFade 0.35s ease both;
 }
 
 @keyframes popIn {
@@ -461,14 +427,136 @@ body > div {
   }
 }
 
-@media (max-width: 768px) {
+/* RESPONSIVE FIXES */
+
+/* Mobile */
+@media (max-width: 640px) {
   body {
     font-size: 14px;
+  }
+
+  main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  section.rounded-3xl,
+  form.rounded-3xl,
+  div.rounded-3xl.border {
+    border-radius: 22px !important;
   }
 
   section.rounded-3xl:hover,
   form.rounded-3xl:hover,
   div.rounded-3xl.border:hover {
     transform: none;
+  }
+
+  .rounded-3xl {
+    border-radius: 22px !important;
+  }
+
+  .p-8 {
+    padding: 1.25rem !important;
+  }
+
+  .p-6 {
+    padding: 1rem !important;
+  }
+
+  .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .py-5 {
+    padding-top: 0.9rem !important;
+    padding-bottom: 0.9rem !important;
+  }
+
+  .text-4xl {
+    font-size: 1.875rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.55rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.3rem !important;
+  }
+
+  .text-xl {
+    font-size: 1.1rem !important;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  th,
+  td {
+    white-space: nowrap;
+  }
+
+  .min-w-\[1000px\] {
+    min-width: 850px !important;
+  }
+
+  .min-w-\[800px\] {
+    min-width: 720px !important;
+  }
+
+  button {
+    min-height: 42px;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 42px;
+  }
+}
+
+/* Tablets / iPad */
+@media (min-width: 641px) and (max-width: 1024px) {
+  main {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+
+  .text-4xl {
+    font-size: 2.35rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.9rem !important;
+  }
+
+  table {
+    font-size: 13px;
+  }
+
+  .min-w-\[1000px\] {
+    min-width: 920px !important;
+  }
+}
+
+/* Laptop / Windows normal */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  main {
+    max-width: 1280px !important;
+  }
+}
+
+/* iMac / large screens */
+@media (min-width: 1441px) {
+  main,
+  .max-w-7xl {
+    max-width: 1500px !important;
+  }
+
+  body {
+    font-size: 15.5px;
   }
 }
