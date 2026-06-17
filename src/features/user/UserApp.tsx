@@ -352,14 +352,6 @@ export function UserApp() {
       </section>
 
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-6">
-          <SectionTitle
-            icon={<ClipboardList className="h-6 w-6 text-blue-600" />}
-            title="My 3-Month Bonus Payments"
-            subtitle="Month-wise view of your own bonus payments."
-          />
-        </div>
-
         <BonusFlowPanel
           payments={payments}
           readonly={true}
