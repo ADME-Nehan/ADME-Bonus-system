@@ -18,7 +18,7 @@ import { MoneyCard } from '@/components/MoneyCard';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { formatLKR } from '@/lib/money';
-import { PaymentRecord, Task } from '@/lib/types';
+import { PaymentRecord, Task } from '../../lib/type';
 
 export function UserApp() {
   const { firebaseUser } = useAuth();
@@ -351,15 +351,25 @@ export function UserApp() {
         </div>
       </section>
 
-      <BonusFlowPanel
-        payments={payments}
-        readonly
-        title="My 3-Month Bonus Payments"
-        subtitle="Month-wise view of your own bonus payments."
-        showFilters={false}
-        showExport={false}
-        emptyMessage="No bonus payments yet. Mark tasks as done and wait for admin to complete the milestone."
-      />
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-6">
+          <SectionTitle
+            icon={<ClipboardList className="h-6 w-6 text-blue-600" />}
+            title="My 3-Month Bonus Payments"
+            subtitle="Month-wise view of your own bonus payments."
+          />
+        </div>
+
+        <BonusFlowPanel
+          payments={payments}
+          readonly={true}
+          title="My 3-Month Bonus Payments"
+          subtitle="Month-wise view of your own bonus payments."
+          showFilters={false}
+          showExport={false}
+          emptyMessage="No bonus payments yet. Mark tasks as done and wait for admin to complete the milestone."
+        />
+      </section>
     </div>
   );
 }

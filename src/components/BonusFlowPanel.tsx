@@ -10,9 +10,9 @@ import {
 } from 'lucide-react';
 
 import { PaymentStatusBadge, SectionTitle } from '@/components/AppShell';
+import { formatPaymentMonth } from '@/lib/bonus';
 import { formatLKR } from '@/lib/money';
 import { PaymentRecord, PaymentStatus } from '../lib/type';
-import { formatPaymentMonth } from '@/lib/bonus';
 
 interface BonusFlowPanelProps {
   payments: PaymentRecord[];
@@ -21,6 +21,11 @@ interface BonusFlowPanelProps {
     status: PaymentStatus
   ) => void;
   readonly?: boolean;
+  title?: string;
+  subtitle?: string;
+  showFilters?: boolean;
+  showExport?: boolean;
+  emptyMessage?: string;
 }
 
 interface BonusFlowRow {
@@ -39,25 +44,39 @@ interface BonusFlowRow {
   payments: PaymentRecord[];
 }
 
-function getPaymentDate(payment: PaymentRecord) {
+function getValidDateFromPayment(payment: PaymentRecord) {
   const timestamp = payment.dueDate?.toMillis?.();
 
   if (timestamp) {
-    return new Date(timestamp);
+    const date = new Date(timestamp);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
   }
 
-  if (payment.dueMonth) {
+  if (payment.dueMonth && /^\d{4}-\d{2}$/.test(payment.dueMonth)) {
     const [year, month] = payment.dueMonth.split('-').map(Number);
-    return new Date(year, month - 1, 1);
+    const date = new Date(year, month - 1, 1);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
   }
 
-  return new Date();
+  return null;
 }
 
 function getMonthKeyFromPayment(payment: PaymentRecord) {
-  if (payment.dueMonth) return payment.dueMonth;
+  if (payment.dueMonth && /^\d{4}-\d{2}$/.test(payment.dueMonth)) {
+    return payment.dueMonth;
+  }
 
-  const date = getPaymentDate(payment);
+  const date = getValidDateFromPayment(payment);
+
+  if (!date) {
+    return 'old-payment';
+  }
 
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
     2,
@@ -66,9 +85,18 @@ function getMonthKeyFromPayment(payment: PaymentRecord) {
 }
 
 function formatMonthLabel(monthKey: string) {
-  const [year, month] = monthKey.split('-').map(Number);
+  if (monthKey === 'old-payment') {
+    return 'Old Payment';
+  }
 
-  return new Date(year, month - 1, 1).toLocaleDateString('en-LK', {
+  const [year, month] = monthKey.split('-').map(Number);
+  const date = new Date(year, month - 1, 1);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Old Payment';
+  }
+
+  return date.toLocaleDateString('en-LK', {
     month: 'short',
     year: 'numeric',
   });
@@ -88,6 +116,11 @@ export function BonusFlowPanel({
   payments,
   onUpdatePaymentStatus,
   readonly = false,
+  title = 'Bonus Flow',
+  subtitle = 'Aggregated month-wise installment view across all projects, milestones, tasks, and assignees.',
+  showFilters = true,
+  showExport = true,
+  emptyMessage = 'No bonus flow data found.',
 }: BonusFlowPanelProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
@@ -160,7 +193,12 @@ export function BonusFlowPanel({
   const monthColumns = useMemo(() => {
     return Array.from(
       new Set(filteredPayments.map((payment) => getMonthKeyFromPayment(payment)))
-    ).sort();
+    ).sort((a, b) => {
+      if (a === 'old-payment') return 1;
+      if (b === 'old-payment') return -1;
+
+      return a.localeCompare(b);
+    });
   }, [filteredPayments]);
 
   const bonusRows = useMemo<BonusFlowRow[]>(() => {
@@ -291,110 +329,118 @@ export function BonusFlowPanel({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <SectionTitle
             icon={<ReceiptText className="h-6 w-6 text-indigo-600" />}
-            title="Bonus Flow"
-            subtitle="Aggregated month-wise installment view across all projects, milestones, tasks, and assignees."
+            title={title}
+            subtitle={subtitle}
           />
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={resetFilters}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-50"
-            >
-              Reset
-            </button>
+          {(showFilters || showExport) && (
+            <div className="flex flex-wrap gap-2">
+              {showFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-50"
+                >
+                  Reset
+                </button>
+              )}
 
-            <button
-              onClick={exportCsv}
-              className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </button>
-          </div>
+              {showExport && (
+                <button
+                  onClick={exportCsv}
+                  className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <div>
-            <label className="mb-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <Filter className="h-3 w-3" />
-              Project
-            </label>
+        {showFilters && (
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div>
+              <label className="mb-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <Filter className="h-3 w-3" />
+                Project
+              </label>
 
-            <select
-              value={projectFilter}
-              onChange={(event) => {
-                setProjectFilter(event.target.value);
-                setMilestoneFilter('');
-              }}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All Projects</option>
+              <select
+                value={projectFilter}
+                onChange={(event) => {
+                  setProjectFilter(event.target.value);
+                  setMilestoneFilter('');
+                }}
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
+              >
+                <option value="">All Projects</option>
 
-              {filterOptions.projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+                {filterOptions.projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Milestone
+              </label>
+
+              <select
+                value={milestoneFilter}
+                onChange={(event) => setMilestoneFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
+              >
+                <option value="">All Milestones</option>
+
+                {filterOptions.milestones.map((milestone) => (
+                  <option key={milestone.id} value={milestone.id}>
+                    {milestone.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Assignee
+              </label>
+
+              <select
+                value={assigneeFilter}
+                onChange={(event) => setAssigneeFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
+              >
+                <option value="">All Assignees</option>
+
+                {filterOptions.assignees.map((assignee) => (
+                  <option key={assignee.id} value={assignee.id}>
+                    {assignee.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Status
+              </label>
+
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
+              >
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
           </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Milestone
-            </label>
-
-            <select
-              value={milestoneFilter}
-              onChange={(event) => setMilestoneFilter(event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All Milestones</option>
-
-              {filterOptions.milestones.map((milestone) => (
-                <option key={milestone.id} value={milestone.id}>
-                  {milestone.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Assignee
-            </label>
-
-            <select
-              value={assigneeFilter}
-              onChange={(event) => setAssigneeFilter(event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All Assignees</option>
-
-              {filterOptions.assignees.map((assignee) => (
-                <option key={assignee.id} value={assignee.id}>
-                  {assignee.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Status
-            </label>
-
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="paid">Paid</option>
-            </select>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -521,15 +567,18 @@ export function BonusFlowPanel({
                                 {row.payments
                                   .slice()
                                   .sort(
-                                    (a, b) =>
-                                      Number(a.installmentNo || 0) -
-                                      Number(b.installmentNo || 0)
+                                    (
+                                      firstPayment: PaymentRecord,
+                                      secondPayment: PaymentRecord
+                                    ) =>
+                                      Number(firstPayment.installmentNo || 0) -
+                                      Number(secondPayment.installmentNo || 0)
                                   )
-                                  .map((payment) => (
+                                  .map((payment: PaymentRecord) => (
                                     <tr key={payment.id}>
                                       <td className="px-5 py-3 font-bold text-slate-700">
-                                        Month {payment.installmentNo}/
-                                        {payment.totalInstallments}
+                                        Month {payment.installmentNo || '-'}/
+                                        {payment.totalInstallments || '-'}
                                       </td>
 
                                       <td className="px-5 py-3 text-slate-600">
@@ -600,7 +649,7 @@ export function BonusFlowPanel({
                   colSpan={monthColumns.length + 6}
                   className="p-10 text-center text-slate-400"
                 >
-                  No bonus flow data found.
+                  {emptyMessage}
                 </td>
               </tr>
             )}
