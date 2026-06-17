@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register, firebaseUser, role, loading } = useAuth();
+  const { login, googleLogin, register, firebaseUser, role, loading } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
@@ -41,6 +41,20 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleLogin() {
+    try {
+      setSubmitting(true);
+      setError('');
+
+      await googleLogin();
+    } catch (err) {
+      console.error(err);
+      setError('Google login failed. Enable Google provider and check authorized domain.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
       <form
@@ -61,11 +75,32 @@ export default function LoginPage() {
           </div>
         )}
 
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={handleGoogleLogin}
+          className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-white text-lg font-black">
+            G
+          </span>
+          Continue with Google
+        </button>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+            or
+          </span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
         {mode === 'register' && (
           <div className="mt-5">
             <label className="text-xs font-black uppercase text-slate-400">
               Name
             </label>
+
             <input
               className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
               value={name}
@@ -79,6 +114,7 @@ export default function LoginPage() {
           <label className="text-xs font-black uppercase text-slate-400">
             Email
           </label>
+
           <input
             type="email"
             className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
@@ -92,6 +128,7 @@ export default function LoginPage() {
           <label className="text-xs font-black uppercase text-slate-400">
             Password
           </label>
+
           <input
             type="password"
             className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
@@ -106,7 +143,11 @@ export default function LoginPage() {
           disabled={submitting}
           className="mt-6 h-12 w-full rounded-2xl bg-blue-600 font-black text-white shadow-lg shadow-blue-100 disabled:opacity-60"
         >
-          {submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}
+          {submitting
+            ? 'Please wait...'
+            : mode === 'login'
+              ? 'Login'
+              : 'Register'}
         </button>
 
         <button

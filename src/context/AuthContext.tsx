@@ -1,10 +1,12 @@
 'use client';
 
 import {
+  GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -21,6 +23,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+
 import { auth, db } from '@/lib/firebase';
 import { UserProfile, UserRole } from '../lib/type';
 
@@ -32,6 +35,7 @@ interface AuthContextValue {
   role: UserRole | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -46,62 +50,46 @@ function getRoleForEmail(email?: string | null): UserRole {
   return 'user';
 }
 
+async function buildProfile(user: User): Promise<UserProfile> {
+  const userRef = doc(db, 'users', user.uid);
+  const userSnapshot = await getDoc(userRef);
+
+  const email = user.email || '';
+  const safeRole = getRoleForEmail(email);
+
+  if (!userSnapshot.exists()) {
+    const newProfile = {
+      name: user.displayName || email || 'User',
+      email,
+      role: safeRole,
+      isManager: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(userRef, newProfile);
+
+    return {
+      id: user.uid,
+      name: newProfile.name,
+      email: newProfile.email,
+      role: newProfile.role,
+      isManager: false,
+    };
+  }
+
+  const existing = userSnapshot.data() as Omit<UserProfile, 'id'>;
+
+  return {
+    id: user.uid,
+    ...existing,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-
-  async function buildProfile(user: User) {
-    const userRef = doc(db, 'users', user.uid);
-    const userSnapshot = await getDoc(userRef);
-
-    const safeRole = getRoleForEmail(user.email);
-
-    if (!userSnapshot.exists()) {
-      const newProfile = {
-        name: user.displayName || user.email || 'User',
-        email: user.email || '',
-        role: safeRole,
-        isManager: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(userRef, newProfile);
-
-      return {
-        id: user.uid,
-        name: newProfile.name,
-        email: newProfile.email,
-        role: newProfile.role,
-        isManager: false,
-      };
-    }
-
-    const existing = userSnapshot.data() as Omit<UserProfile, 'id'>;
-
-    if (safeRole === 'admin' && existing.role !== 'admin') {
-      await setDoc(
-        userRef,
-        {
-          role: 'admin',
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      return {
-        id: user.uid,
-        ...existing,
-        role: 'admin' as const,
-      };
-    }
-
-    return {
-      id: user.uid,
-      ...existing,
-    };
-  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -118,6 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setFirebaseUser(currentUser);
         setProfile(userProfile);
+      } catch (error) {
+        console.error('Auth profile error:', error);
+        setFirebaseUser(currentUser);
+        setProfile(null);
       } finally {
         setLoading(false);
       }
@@ -130,8 +122,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function googleLogin() {
+    const provider = new GoogleAuthProvider();
+
+    provider.setCustomParameters({
+      prompt: 'select_account',
+    });
+
+    await signInWithPopup(auth, provider);
+  }
+
   async function register(name: string, email: string, password: string) {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const credential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
     await updateProfile(credential.user, {
       displayName: name,
@@ -160,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profile?.role || null,
       loading,
       login,
+      googleLogin,
       register,
       logout,
     }),
