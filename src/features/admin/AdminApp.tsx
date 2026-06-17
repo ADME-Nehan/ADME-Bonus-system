@@ -11,21 +11,22 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { BonusFlowPanel } from '@/components/BonusFlowPanel';
 import {
+  AlertCircle,
+  BellRing,
+  Building2,
   CheckCircle2,
-  ClipboardList,
+  Crown,
   Folder,
+  LayoutDashboard,
   Plus,
-  ReceiptText,
   Trash2,
   Users,
+  WalletCards,
 } from 'lucide-react';
 
-import {
-  RoleBadge,
-  SectionTitle,
-} from '@/components/AppShell';
+import { RoleBadge, SectionTitle } from '@/components/AppShell';
+import { BonusFlowPanel } from '@/components/BonusFlowPanel';
 import { MoneyCard } from '@/components/MoneyCard';
 
 import {
@@ -51,10 +52,12 @@ import {
   UserProfile,
 } from '../../lib/type';
 
-type AdminTab = 'projects' | 'tasks' | 'users' | 'payments';
+type AdminTab = 'projects' | 'dashboard' | 'users' | 'payments';
+type DashboardMode = 'breakdown' | 'disbursement';
 
 export function AdminApp() {
   const [activeTab, setActiveTab] = useState<AdminTab>('projects');
+  const [dashboardMode, setDashboardMode] = useState<DashboardMode>('breakdown');
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,11 +99,7 @@ export function AdminApp() {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(
         snapshot.docs.map(
-          (item) =>
-            ({
-              id: item.id,
-              ...item.data(),
-            }) as UserProfile
+          (item) => ({ id: item.id, ...item.data() }) as UserProfile
         )
       );
     });
@@ -108,11 +107,7 @@ export function AdminApp() {
     const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
       setProjects(
         snapshot.docs.map(
-          (item) =>
-            ({
-              id: item.id,
-              ...item.data(),
-            }) as Project
+          (item) => ({ id: item.id, ...item.data() }) as Project
         )
       );
     });
@@ -122,11 +117,7 @@ export function AdminApp() {
       (snapshot) => {
         setMilestones(
           snapshot.docs.map(
-            (item) =>
-              ({
-                id: item.id,
-                ...item.data(),
-              }) as Milestone
+            (item) => ({ id: item.id, ...item.data() }) as Milestone
           )
         );
       }
@@ -137,11 +128,7 @@ export function AdminApp() {
       (snapshot) => {
         setCategories(
           snapshot.docs.map(
-            (item) =>
-              ({
-                id: item.id,
-                ...item.data(),
-              }) as Category
+            (item) => ({ id: item.id, ...item.data() }) as Category
           )
         );
       }
@@ -150,32 +137,24 @@ export function AdminApp() {
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
       setTasks(
         snapshot.docs.map(
-          (item) =>
-            ({
-              id: item.id,
-              ...item.data(),
-            }) as Task
+          (item) => ({ id: item.id, ...item.data() }) as Task
         )
       );
     });
 
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
-      const paymentRows = snapshot.docs.map(
-        (item) =>
-          ({
-            id: item.id,
-            ...item.data(),
-          }) as PaymentRecord
+      const rows = snapshot.docs.map(
+        (item) => ({ id: item.id, ...item.data() }) as PaymentRecord
       );
 
-      paymentRows.sort((a, b) => {
+      rows.sort((a, b) => {
         const aTime = a.dueDate?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
         const bTime = b.dueDate?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
 
         return aTime - bTime;
       });
 
-      setPayments(paymentRows);
+      setPayments(rows);
     });
 
     return () => {
@@ -211,11 +190,11 @@ export function AdminApp() {
       return;
     }
 
-    const milestoneStillExists = projectMilestones.some(
+    const exists = projectMilestones.some(
       (item) => item.id === selectedMilestoneId
     );
 
-    if (!milestoneStillExists) {
+    if (!exists) {
       setSelectedMilestoneId(projectMilestones[0].id);
     }
   }, [projectMilestones, selectedMilestoneId]);
@@ -235,9 +214,53 @@ export function AdminApp() {
     return tasks.filter((item) => item.milestoneId === selectedMilestoneId);
   }, [tasks, selectedMilestoneId]);
 
+  const milestonePayments = useMemo(() => {
+    return payments.filter((item) => item.milestoneId === selectedMilestoneId);
+  }, [payments, selectedMilestoneId]);
+
   const normalUsers = useMemo(() => {
     return users.filter((item) => item.role === 'user');
   }, [users]);
+
+  const managerUsers = useMemo(() => {
+    return users.filter((item) => item.isManager || item.role === 'admin');
+  }, [users]);
+
+  const milestoneTaskProgress = useMemo(() => {
+    const totalTasks = milestoneTasks.length;
+
+    const completedTasks = milestoneTasks.filter(
+      (item) => item.status === 'completed'
+    ).length;
+
+    const activeTasks = milestoneTasks.filter(
+      (item) => item.status !== 'completed'
+    ).length;
+
+    const invalidTasks = milestoneTasks.filter(
+      (item) => !item.assignedUserId || Number(item.pts || 0) <= 0
+    ).length;
+
+    const allTasksDone =
+      totalTasks > 0 && completedTasks === totalTasks && invalidTasks === 0;
+
+    const someTasksDone =
+      totalTasks > 0 && completedTasks > 0 && completedTasks < totalTasks;
+
+    return {
+      totalTasks,
+      completedTasks,
+      activeTasks,
+      invalidTasks,
+      allTasksDone,
+      someTasksDone,
+      canComplete:
+        !!selectedMilestone &&
+        !selectedMilestoneIsCompleted &&
+        totalTasks > 0 &&
+        allTasksDone,
+    };
+  }, [milestoneTasks, selectedMilestone, selectedMilestoneIsCompleted]);
 
   useEffect(() => {
     if (milestoneCategories.length === 0) {
@@ -250,11 +273,11 @@ export function AdminApp() {
       return;
     }
 
-    const categoryStillExists = milestoneCategories.some(
+    const exists = milestoneCategories.some(
       (item) => item.id === selectedCategoryId
     );
 
-    if (!categoryStillExists) {
+    if (!exists) {
       setSelectedCategoryId(milestoneCategories[0].id);
     }
   }, [milestoneCategories, selectedCategoryId]);
@@ -265,15 +288,17 @@ export function AdminApp() {
     }
   }, [assignedUserId, normalUsers]);
 
+  const selectedPools = getBonusPools(selectedMilestone?.revenue || 0);
+
   async function addProject(event: React.FormEvent) {
     event.preventDefault();
 
-    const cleanProjectName = projectName.trim();
+    const cleanName = projectName.trim();
 
-    if (!cleanProjectName) return;
+    if (!cleanName) return;
 
     await addDoc(collection(db, 'projects'), {
-      name: cleanProjectName,
+      name: cleanName,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -284,14 +309,14 @@ export function AdminApp() {
   async function addMilestone(event: React.FormEvent) {
     event.preventDefault();
 
-    const cleanMilestoneName = milestoneName.trim();
+    const cleanName = milestoneName.trim();
 
-    if (!selectedProject || !cleanMilestoneName) return;
+    if (!selectedProject || !cleanName) return;
 
     await addDoc(collection(db, 'milestones'), {
       projectId: selectedProject.id,
       projectName: selectedProject.name,
-      name: cleanMilestoneName,
+      name: cleanName,
       revenue: Number(milestoneRevenue || 0),
       status: 'active',
       createdAt: serverTimestamp(),
@@ -302,12 +327,12 @@ export function AdminApp() {
     setMilestoneRevenue(0);
   }
 
-  async function addCategory(event: React.FormEvent) {
-    event.preventDefault();
+  async function addCategory(event?: React.FormEvent) {
+    event?.preventDefault();
 
-    const cleanCategoryName = categoryName.trim();
+    const cleanName = categoryName.trim() || 'New Category';
 
-    if (!selectedProject || !selectedMilestone || !cleanCategoryName) return;
+    if (!selectedProject || !selectedMilestone) return;
     if (selectedMilestoneIsCompleted) return;
 
     await addDoc(collection(db, 'categories'), {
@@ -315,8 +340,8 @@ export function AdminApp() {
       projectName: selectedProject.name,
       milestoneId: selectedMilestone.id,
       milestoneName: selectedMilestone.name,
-      name: cleanCategoryName,
-      pts: Number(categoryPoints || 0),
+      name: cleanName,
+      pts: Number(categoryPoints || 1),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -325,41 +350,42 @@ export function AdminApp() {
     setCategoryPoints(1);
   }
 
-  async function addTask(event: React.FormEvent) {
-    event.preventDefault();
-
-    const cleanTaskName = taskName.trim();
-
-    if (
-      !selectedProject ||
-      !selectedMilestone ||
-      !selectedCategoryId ||
-      !cleanTaskName
-    ) {
-      return;
-    }
-
+  async function addTask(categoryId?: string) {
+    if (!selectedProject || !selectedMilestone) return;
     if (selectedMilestoneIsCompleted) return;
 
-    const category = categories.find((item) => item.id === selectedCategoryId);
+    const finalCategoryId = categoryId || selectedCategoryId;
+
+    const category = categories.find((item) => item.id === finalCategoryId);
     const assignedUser = users.find((item) => item.id === assignedUserId);
 
-    if (!category || !assignedUser) return;
+    if (!category || !assignedUser) {
+      alert('Please select category and assigned user.');
+      return;
+    }
 
     await addDoc(collection(db, 'tasks'), {
       projectId: selectedProject.id,
       projectName: selectedProject.name,
+
       milestoneId: selectedMilestone.id,
       milestoneName: selectedMilestone.name,
+
       categoryId: category.id,
       categoryName: category.name,
-      name: cleanTaskName,
-      pts: Number(taskPoints || 0),
+
+      name: taskName.trim() || 'New Task',
+      pts: Number(taskPoints || 1),
+
       assignedUserId: assignedUser.id,
       assignedUserName: assignedUser.name || assignedUser.email,
+
       status: 'active',
       locked: false,
+
+      estimatedBonusAmount: 0,
       bonusAmount: 0,
+
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -377,17 +403,38 @@ export function AdminApp() {
     });
   }
 
+  async function removeProject(project: Project) {
+    const confirmed = window.confirm(
+      `Delete project "${project.name}"? Delete milestones/categories/tasks first if needed.`
+    );
+
+    if (!confirmed) return;
+
+    await deleteDoc(doc(db, 'projects', project.id));
+  }
+
+  async function removeMilestone(milestone: Milestone) {
+    if (milestone.status === 'completed') {
+      alert('Completed milestone cannot be deleted.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete milestone "${milestone.name}"?`);
+
+    if (!confirmed) return;
+
+    await deleteDoc(doc(db, 'milestones', milestone.id));
+  }
+
   async function removeCategory(category: Category) {
     if (!selectedMilestone || selectedMilestoneIsCompleted) return;
 
-    const confirmDelete = window.confirm(
-      'Delete this category and its tasks?'
-    );
+    const confirmed = window.confirm('Delete this category and its tasks?');
 
-    if (!confirmDelete) return;
+    if (!confirmed) return;
 
-    const categoryTasks = tasks.filter((item) => item.categoryId === category.id);
     const batch = writeBatch(db);
+    const categoryTasks = tasks.filter((item) => item.categoryId === category.id);
 
     categoryTasks.forEach((task) => {
       if (!task.locked) {
@@ -403,9 +450,9 @@ export function AdminApp() {
   async function removeTask(task: Task) {
     if (!selectedMilestone || selectedMilestoneIsCompleted || task.locked) return;
 
-    const confirmDelete = window.confirm('Delete this task?');
+    const confirmed = window.confirm('Delete this task?');
 
-    if (!confirmDelete) return;
+    if (!confirmed) return;
 
     await deleteDoc(doc(db, 'tasks', task.id));
   }
@@ -429,20 +476,27 @@ export function AdminApp() {
       return;
     }
 
-    const payableTasks = milestoneTasks.filter(
-      (item) =>
-        item.status === 'completed' &&
-        item.assignedUserId &&
-        Number(item.pts || 0) > 0
-    );
+    if (milestoneTasks.length === 0) {
+      alert('Add tasks first before completing this milestone.');
+      return;
+    }
 
-    if (payableTasks.length === 0) {
-      alert('No completed tasks found. Users must click Done before admin completes the milestone.');
+    if (milestoneTaskProgress.invalidTasks > 0) {
+      alert(
+        'Some tasks have no assigned user or no points. Please fix them before completing the milestone.'
+      );
+      return;
+    }
+
+    if (!milestoneTaskProgress.allTasksDone) {
+      alert(
+        `Cannot complete milestone yet. ${milestoneTaskProgress.completedTasks}/${milestoneTaskProgress.totalTasks} tasks are done. All users must click Done first.`
+      );
       return;
     }
 
     const confirmed = window.confirm(
-      'Complete this milestone? Each task payment will be split into 3 monthly installments and all tasks will be locked.'
+      `All ${milestoneTaskProgress.totalTasks} tasks are done. Complete milestone and create 3-month payments?`
     );
 
     if (!confirmed) return;
@@ -455,7 +509,7 @@ export function AdminApp() {
       updatedAt: serverTimestamp(),
     });
 
-    payableTasks.forEach((task) => {
+    milestoneTasks.forEach((task) => {
       const category = categories.find((item) => item.id === task.categoryId);
 
       if (!category) return;
@@ -472,7 +526,8 @@ export function AdminApp() {
         status: 'completed',
         locked: true,
         bonusAmount: taskTotalAmount,
-        completedAt: serverTimestamp(),
+        estimatedBonusAmount: taskTotalAmount,
+        completedAt: task.completedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
@@ -553,8 +608,6 @@ export function AdminApp() {
     );
   }
 
-  const selectedPools = getBonusPools(selectedMilestone?.revenue || 0);
-
   const paymentStats = (() => {
     const pending = payments
       .filter((item) => item.status === 'pending')
@@ -634,11 +687,11 @@ export function AdminApp() {
     .sort((a, b) => b.total - a.total);
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap gap-2 rounded-3xl bg-slate-200/50 p-2">
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-700/40 bg-slate-900/50 p-2 backdrop-blur-xl">
         {[
           ['projects', 'Projects'],
-          ['tasks', 'Tasks'],
+          ['dashboard', 'Dashboard'],
           ['users', 'Users'],
           ['payments', 'Payments'],
         ].map(([key, label]) => (
@@ -647,8 +700,8 @@ export function AdminApp() {
             onClick={() => setActiveTab(key as AdminTab)}
             className={`rounded-2xl px-5 py-2 text-sm font-black ${
               activeTab === key
-                ? 'bg-white text-blue-700 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-blue-500/20 text-blue-200 shadow-sm'
+                : 'text-slate-400 hover:text-slate-100'
             }`}
           >
             {label}
@@ -657,590 +710,1232 @@ export function AdminApp() {
       </div>
 
       {activeTab === 'projects' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <SectionTitle
-              icon={<Folder className="h-6 w-6 text-blue-600" />}
-              title="Projects & Milestones"
-              subtitle="Create projects and set milestone revenue."
-            />
-
-            <form onSubmit={addProject} className="flex gap-3">
-              <input
-                className="h-12 flex-1 rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                placeholder="Project name"
-                value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-              />
-
-              <button className="rounded-2xl bg-blue-600 px-5 font-black text-white">
-                Add
-              </button>
-            </form>
-
-            <div className="mt-5 space-y-3">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => {
-                    setSelectedProjectId(project.id);
-                    setSelectedMilestoneId('');
-                    setSelectedCategoryId('');
-                  }}
-                  className={`block w-full rounded-2xl border p-4 text-left ${
-                    selectedProjectId === project.id
-                      ? 'border-blue-300 bg-blue-50'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <strong>{project.name}</strong>
-                </button>
-              ))}
-
-              {projects.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
-                  No projects yet.
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <SectionTitle
-              icon={<ClipboardList className="h-6 w-6 text-indigo-600" />}
-              title="Milestones"
-              subtitle={selectedProject ? selectedProject.name : 'Select project first'}
-            />
-
-            <form
-              onSubmit={addMilestone}
-              className="grid gap-3 md:grid-cols-[1fr_180px_auto]"
-            >
-              <input
-                className="h-12 rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                placeholder="Milestone name"
-                value={milestoneName}
-                onChange={(event) => setMilestoneName(event.target.value)}
-              />
-
-              <input
-                type="number"
-                className="h-12 rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                placeholder="Revenue"
-                value={milestoneRevenue || ''}
-                onChange={(event) =>
-                  setMilestoneRevenue(Number(event.target.value) || 0)
-                }
-              />
-
-              <button className="rounded-2xl bg-indigo-600 px-5 font-black text-white">
-                Add
-              </button>
-            </form>
-
-            <div className="mt-5 space-y-3">
-              {projectMilestones.map((milestone) => (
-                <button
-                  key={milestone.id}
-                  onClick={() => {
-                    setSelectedMilestoneId(milestone.id);
-                    setSelectedCategoryId('');
-                  }}
-                  className={`block w-full rounded-2xl border p-4 text-left ${
-                    selectedMilestoneId === milestone.id
-                      ? 'border-indigo-300 bg-indigo-50'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <strong>{milestone.name}</strong>
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
-                        milestone.status === 'completed'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {milestone.status}
-                    </span>
-                  </div>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Revenue: LKR {formatLKR(milestone.revenue)}
-                  </p>
-                </button>
-              ))}
-
-              {projectMilestones.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
-                  No milestones for this project yet.
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
+        <ProjectsPanel
+          projects={projects}
+          projectMilestones={projectMilestones}
+          selectedProjectId={selectedProjectId}
+          selectedMilestoneId={selectedMilestoneId}
+          projectName={projectName}
+          milestoneName={milestoneName}
+          milestoneRevenue={milestoneRevenue}
+          onProjectNameChange={setProjectName}
+          onMilestoneNameChange={setMilestoneName}
+          onMilestoneRevenueChange={setMilestoneRevenue}
+          onAddProject={addProject}
+          onAddMilestone={addMilestone}
+          onSelectProject={(id) => {
+            setSelectedProjectId(id);
+            setSelectedMilestoneId('');
+            setSelectedCategoryId('');
+          }}
+          onSelectMilestone={(id) => {
+            setSelectedMilestoneId(id);
+            setSelectedCategoryId('');
+            setActiveTab('dashboard');
+          }}
+          onDeleteProject={removeProject}
+          onDeleteMilestone={removeMilestone}
+        />
       )}
 
-      {activeTab === 'tasks' && (
-        <div className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <SectionTitle
-              title="Task Allocation"
-              subtitle="Add categories, assign users, and complete milestone to create 3-month payments."
-            />
-
-            {!selectedMilestone ? (
-              <p className="text-slate-500">
-                Select a milestone from Projects tab.
-              </p>
-            ) : (
-              <>
-                {selectedMilestoneIsCompleted && (
-                  <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-bold text-emerald-700">
-                    This milestone is completed and locked.
-                  </div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-4">
-                  <MoneyCard title="Bonus Pool" amount={selectedPools.bonusPool} />
-                  <MoneyCard
-                    title="Management Pool"
-                    amount={selectedPools.managementPool}
-                  />
-                  <MoneyCard title="Team Pool" amount={selectedPools.teamPool} />
-                  <MoneyCard
-                    title="Corporate Pool"
-                    amount={selectedPools.corporatePool}
-                  />
-                </div>
-
-                <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <label className="text-[10px] font-black uppercase text-slate-400">
-                      Milestone Revenue LKR
-                    </label>
-
-                    <input
-                      type="number"
-                      disabled={selectedMilestoneIsCompleted}
-                      value={selectedMilestone.revenue || ''}
-                      onChange={(event) =>
-                        updateMilestoneRevenue(Number(event.target.value) || 0)
-                      }
-                      className="mt-1 w-full bg-transparent text-2xl font-black text-blue-600 outline-none disabled:text-slate-400"
-                    />
-                  </div>
-
-                  <button
-                    disabled={selectedMilestoneIsCompleted}
-                    onClick={completeMilestone}
-                    className="rounded-2xl bg-emerald-600 px-6 py-4 font-black text-white shadow-lg shadow-emerald-100 disabled:bg-slate-300"
-                  >
-                    <CheckCircle2 className="mr-2 inline h-5 w-5" />
-                    Complete Milestone
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-
-          {selectedMilestone && !selectedMilestoneIsCompleted && (
-            <section className="grid gap-6 lg:grid-cols-2">
-              <form
-                onSubmit={addCategory}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <h3 className="font-black text-slate-900">Add Category</h3>
-
-                <input
-                  className="mt-4 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  placeholder="Category name"
-                  value={categoryName}
-                  onChange={(event) => setCategoryName(event.target.value)}
-                />
-
-                <input
-                  type="number"
-                  className="mt-3 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  placeholder="Category points"
-                  value={categoryPoints || ''}
-                  onChange={(event) =>
-                    setCategoryPoints(Number(event.target.value) || 0)
-                  }
-                />
-
-                <button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-black text-white">
-                  <Plus className="mr-2 inline h-4 w-4" />
-                  Add Category
-                </button>
-              </form>
-
-              <form
-                onSubmit={addTask}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <h3 className="font-black text-slate-900">Add Task</h3>
-
-                <select
-                  className="mt-4 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  value={selectedCategoryId}
-                  onChange={(event) => setSelectedCategoryId(event.target.value)}
-                >
-                  <option value="">Select category</option>
-
-                  {milestoneCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="mt-3 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  value={assignedUserId}
-                  onChange={(event) => setAssignedUserId(event.target.value)}
-                >
-                  <option value="">Select user</option>
-
-                  {normalUsers.map((appUser) => (
-                    <option key={appUser.id} value={appUser.id}>
-                      {appUser.name || appUser.email}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="mt-3 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  placeholder="Task name"
-                  value={taskName}
-                  onChange={(event) => setTaskName(event.target.value)}
-                />
-
-                <input
-                  type="number"
-                  className="mt-3 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-blue-500"
-                  placeholder="Task points"
-                  value={taskPoints || ''}
-                  onChange={(event) =>
-                    setTaskPoints(Number(event.target.value) || 0)
-                  }
-                />
-
-                <button className="mt-4 rounded-2xl bg-indigo-600 px-5 py-3 font-black text-white">
-                  <Plus className="mr-2 inline h-4 w-4" />
-                  Add Task
-                </button>
-              </form>
-            </section>
-          )}
-
-          {selectedMilestone && (
-            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 p-6">
-                <h3 className="font-black text-slate-900">Categories & Tasks</h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-widest text-slate-400">
-                      <th className="px-6 py-4">Type</th>
-                      <th className="px-6 py-4">Name</th>
-                      <th className="px-6 py-4">User</th>
-                      <th className="px-6 py-4">Points</th>
-                      <th className="px-6 py-4 text-right">
-                        Payment Preview
-                      </th>
-                      <th className="px-6 py-4 text-right">Action</th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {milestoneCategories.map((category) => {
-                      const categoryTasks = milestoneTasks.filter(
-                        (task) => task.categoryId === category.id
-                      );
-
-                      return (
-                        <React.Fragment key={category.id}>
-                          <tr className="bg-slate-50/60">
-                            <td className="px-6 py-4 font-black text-blue-600">
-                              Category
-                            </td>
-
-                            <td className="px-6 py-4 font-black text-slate-800">
-                              {category.name}
-                            </td>
-
-                            <td className="px-6 py-4">-</td>
-
-                            <td className="px-6 py-4 font-black">
-                              {category.pts}
-                            </td>
-
-                            <td className="px-6 py-4 text-right">-</td>
-
-                            <td className="px-6 py-4 text-right">
-                              {!selectedMilestoneIsCompleted && (
-                                <button
-                                  onClick={() => removeCategory(category)}
-                                  className="rounded-xl bg-red-50 p-2 text-red-500"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-
-                          {categoryTasks.map((task) => {
-                            const paymentPreview = calculateTaskBonus({
-                              milestone: selectedMilestone,
-                              category,
-                              task,
-                              categories,
-                              tasks,
-                            });
-
-                            return (
-                              <tr key={task.id}>
-                                <td className="px-6 py-4 font-black text-indigo-600">
-                                  Task
-                                </td>
-
-                                <td className="px-6 py-4">
-                                  <div className="font-bold text-slate-800">
-                                    {task.name}
-                                  </div>
-
-                                  <div className="text-xs text-slate-400">
-                                    {task.status}{' '}
-                                    {task.locked ? '· locked' : ''}
-                                  </div>
-                                </td>
-
-                                <td className="px-6 py-4">
-                                  {task.assignedUserName}
-                                </td>
-
-                                <td className="px-6 py-4 font-black text-blue-600">
-                                  {task.pts}
-                                </td>
-
-                                <td className="px-6 py-4 text-right font-black text-slate-900">
-                                  LKR {formatLKR(paymentPreview)}
-                                </td>
-
-                                <td className="px-6 py-4 text-right">
-                                  {!task.locked &&
-                                    !selectedMilestoneIsCompleted && (
-                                      <button
-                                        onClick={() => removeTask(task)}
-                                        className="rounded-xl bg-red-50 p-2 text-red-500"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {milestoneCategories.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="p-10 text-center text-slate-400"
-                        >
-                          No categories/tasks yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-        </div>
+      {activeTab === 'dashboard' && (
+        <DashboardPanel
+          selectedMilestone={selectedMilestone}
+          selectedMilestoneIsCompleted={selectedMilestoneIsCompleted}
+          dashboardMode={dashboardMode}
+          setDashboardMode={setDashboardMode}
+          selectedPools={selectedPools}
+          managerUsers={managerUsers}
+          milestoneCategories={milestoneCategories}
+          milestoneTasks={milestoneTasks}
+          milestonePayments={milestonePayments}
+          categories={categories}
+          tasks={tasks}
+          normalUsers={normalUsers}
+          categoryName={categoryName}
+          categoryPoints={categoryPoints}
+          taskName={taskName}
+          taskPoints={taskPoints}
+          assignedUserId={assignedUserId}
+          selectedCategoryId={selectedCategoryId}
+          milestoneTaskProgress={milestoneTaskProgress}
+          onCategoryNameChange={setCategoryName}
+          onCategoryPointsChange={setCategoryPoints}
+          onTaskNameChange={setTaskName}
+          onTaskPointsChange={setTaskPoints}
+          onAssignedUserChange={setAssignedUserId}
+          onSelectedCategoryChange={setSelectedCategoryId}
+          onAddCategory={addCategory}
+          onAddTask={addTask}
+          onRemoveCategory={removeCategory}
+          onRemoveTask={removeTask}
+          onRevenueChange={updateMilestoneRevenue}
+          onCompleteMilestone={completeMilestone}
+          onUpdatePaymentStatus={updatePaymentStatus}
+        />
       )}
 
-      {activeTab === 'users' && (
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-6">
-            <SectionTitle
-              icon={<Users className="h-6 w-6 text-blue-600" />}
-              title="Users"
-              subtitle="View users and manage manager/stakeholder flag."
-            />
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-widest text-slate-400">
-                  <th className="px-6 py-4">User</th>
-                  <th className="px-6 py-4">Role</th>
-                  <th className="px-6 py-4">Manager</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100">
-                {users.map((appUser) => (
-                  <tr key={appUser.id}>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800">
-                        {appUser.name}
-                      </div>
-
-                      <div className="text-xs text-slate-400">
-                        {appUser.email}
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <RoleBadge role={appUser.role} />
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() =>
-                          updateDoc(doc(db, 'users', appUser.id), {
-                            isManager: !appUser.isManager,
-                            updatedAt: serverTimestamp(),
-                          })
-                        }
-                        className={`rounded-xl px-4 py-2 text-xs font-black ${
-                          appUser.isManager
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {appUser.isManager ? 'Manager' : 'Normal User'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-
-                {users.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="p-10 text-center text-slate-400"
-                    >
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      {activeTab === 'users' && <UsersPanel users={users} />}
 
       {activeTab === 'payments' && (
-        <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            <MoneyCard
-              title="Pending"
-              amount={paymentStats.pending}
-              className="bg-amber-50 text-amber-700 border-amber-200"
-            />
+        <PaymentsPanel
+          payments={payments}
+          userEarnings={userEarnings}
+          paymentStats={paymentStats}
+          monthlySpendBudget={monthlySpendBudget}
+          monthlyRemaining={monthlyRemaining}
+          setMonthlySpendBudget={setMonthlySpendBudget}
+          updatePaymentStatus={updatePaymentStatus}
+        />
+      )}
+    </div>
+  );
+}
 
-            <MoneyCard
-              title="Approved"
-              amount={paymentStats.approved}
-              className="bg-blue-50 text-blue-700 border-blue-200"
-            />
+function ProjectsPanel({
+  projects,
+  projectMilestones,
+  selectedProjectId,
+  selectedMilestoneId,
+  projectName,
+  milestoneName,
+  milestoneRevenue,
+  onProjectNameChange,
+  onMilestoneNameChange,
+  onMilestoneRevenueChange,
+  onAddProject,
+  onAddMilestone,
+  onSelectProject,
+  onSelectMilestone,
+  onDeleteProject,
+  onDeleteMilestone,
+}: {
+  projects: Project[];
+  projectMilestones: Milestone[];
+  selectedProjectId: string;
+  selectedMilestoneId: string;
+  projectName: string;
+  milestoneName: string;
+  milestoneRevenue: number;
+  onProjectNameChange: (value: string) => void;
+  onMilestoneNameChange: (value: string) => void;
+  onMilestoneRevenueChange: (value: number) => void;
+  onAddProject: (event: React.FormEvent) => void;
+  onAddMilestone: (event: React.FormEvent) => void;
+  onSelectProject: (id: string) => void;
+  onSelectMilestone: (id: string) => void;
+  onDeleteProject: (project: Project) => void;
+  onDeleteMilestone: (milestone: Milestone) => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80 shadow-2xl shadow-black/20">
+      <div className="flex flex-col gap-4 border-b border-slate-700/50 bg-slate-950/30 p-6 md:flex-row md:items-center md:justify-between">
+        <SectionTitle
+          icon={<Folder className="h-5 w-5" />}
+          title="Projects and Milestones"
+        />
 
-            <MoneyCard
-              title="Paid"
-              amount={paymentStats.paid}
-              className="bg-emerald-50 text-emerald-700 border-emerald-200"
-            />
-          </div>
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-6">
-              <SectionTitle
-                icon={<Users className="h-6 w-6 text-blue-600" />}
-                title="All Users Earnings"
-                subtitle="Admin can see every user's earned amount and this month spend amount."
-              />
+        <form onSubmit={onAddProject} className="flex gap-2">
+          <input
+            value={projectName}
+            onChange={(event) => onProjectNameChange(event.target.value)}
+            placeholder="New Project Name"
+            className="h-12 w-72 rounded-2xl border border-slate-700 px-4 text-sm outline-none"
+          />
+
+          <button className="flex h-12 items-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white">
+            <Plus className="h-4 w-4" />
+            Add
+          </button>
+        </form>
+      </div>
+
+      <div className="p-6">
+        {projects.map((project) => (
+          <div
+            key={project.id}
+            className={`mb-5 overflow-hidden rounded-3xl border ${
+              selectedProjectId === project.id
+                ? 'border-blue-400/40 bg-blue-500/10'
+                : 'border-slate-700/50 bg-slate-950/30'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-slate-700/40 p-5">
+              <button
+                onClick={() => onSelectProject(project.id)}
+                className="flex items-center gap-3 text-left text-lg font-black text-slate-50"
+              >
+                <span className="text-slate-400">⌄</span>
+                {project.name}
+              </button>
+
+              <button
+                onClick={() => onDeleteProject(project)}
+                className="rounded-xl p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {selectedProjectId === project.id && (
+              <div className="p-5">
+                <form
+                  onSubmit={onAddMilestone}
+                  className="mb-6 grid gap-3 rounded-2xl border border-slate-700/50 bg-slate-950/40 p-4 md:grid-cols-[1fr_180px_auto]"
+                >
+                  <input
+                    value={milestoneName}
+                    onChange={(event) =>
+                      onMilestoneNameChange(event.target.value)
+                    }
+                    placeholder="Milestone Name"
+                    className="h-12 rounded-2xl border border-slate-700 px-4 text-sm outline-none"
+                  />
+
+                  <input
+                    type="number"
+                    value={milestoneRevenue || ''}
+                    onChange={(event) =>
+                      onMilestoneRevenueChange(Number(event.target.value) || 0)
+                    }
+                    placeholder="Revenue"
+                    className="h-12 rounded-2xl border border-slate-700 px-4 text-sm outline-none"
+                  />
+
+                  <button className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white">
+                    <Plus className="h-4 w-4" />
+                    Add Milestone
+                  </button>
+                </form>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {projectMilestones.map((milestone) => (
+                    <div
+                      key={milestone.id}
+                      className={`rounded-2xl border p-5 shadow-xl shadow-black/10 ${
+                        selectedMilestoneId === milestone.id
+                          ? 'border-blue-400/40 bg-blue-500/10'
+                          : 'border-slate-700/50 bg-slate-900/70'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Folder className="h-4 w-4 text-blue-300" />
+                            <h3 className="text-lg font-black text-slate-50">
+                              {milestone.name}
+                            </h3>
+
+                            {milestone.status === 'completed' && (
+                              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black uppercase text-emerald-200">
+                                Completed
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-2 text-lg font-black text-blue-300">
+                            LKR {formatLKR(milestone.revenue, 0)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onSelectMilestone(milestone.id)}
+                            className="rounded-xl bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25"
+                          >
+                            Dashboard →
+                          </button>
+
+                          {milestone.status !== 'completed' && (
+                            <button
+                              onClick={() => onDeleteMilestone(milestone)}
+                              className="rounded-xl p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {projectMilestones.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-500">
+                      No milestones yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {projects.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-slate-700 p-10 text-center text-slate-500">
+            No projects yet. Add your first project.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DashboardPanel({
+  selectedMilestone,
+  selectedMilestoneIsCompleted,
+  dashboardMode,
+  setDashboardMode,
+  selectedPools,
+  managerUsers,
+  milestoneCategories,
+  milestoneTasks,
+  milestonePayments,
+  categories,
+  tasks,
+  normalUsers,
+  categoryName,
+  categoryPoints,
+  taskName,
+  taskPoints,
+  assignedUserId,
+  selectedCategoryId,
+  milestoneTaskProgress,
+  onCategoryNameChange,
+  onCategoryPointsChange,
+  onTaskNameChange,
+  onTaskPointsChange,
+  onAssignedUserChange,
+  onSelectedCategoryChange,
+  onAddCategory,
+  onAddTask,
+  onRemoveCategory,
+  onRemoveTask,
+  onRevenueChange,
+  onCompleteMilestone,
+  onUpdatePaymentStatus,
+}: {
+  selectedMilestone?: Milestone;
+  selectedMilestoneIsCompleted: boolean;
+  dashboardMode: DashboardMode;
+  setDashboardMode: (value: DashboardMode) => void;
+  selectedPools: ReturnType<typeof getBonusPools>;
+  managerUsers: UserProfile[];
+  milestoneCategories: Category[];
+  milestoneTasks: Task[];
+  milestonePayments: PaymentRecord[];
+  categories: Category[];
+  tasks: Task[];
+  normalUsers: UserProfile[];
+  categoryName: string;
+  categoryPoints: number;
+  taskName: string;
+  taskPoints: number;
+  assignedUserId: string;
+  selectedCategoryId: string;
+  milestoneTaskProgress: {
+    totalTasks: number;
+    completedTasks: number;
+    activeTasks: number;
+    invalidTasks: number;
+    allTasksDone: boolean;
+    someTasksDone: boolean;
+    canComplete: boolean;
+  };
+  onCategoryNameChange: (value: string) => void;
+  onCategoryPointsChange: (value: number) => void;
+  onTaskNameChange: (value: string) => void;
+  onTaskPointsChange: (value: number) => void;
+  onAssignedUserChange: (value: string) => void;
+  onSelectedCategoryChange: (value: string) => void;
+  onAddCategory: (event?: React.FormEvent) => void;
+  onAddTask: (categoryId?: string) => void;
+  onRemoveCategory: (category: Category) => void;
+  onRemoveTask: (task: Task) => void;
+  onRevenueChange: (value: number) => void;
+  onCompleteMilestone: () => void;
+  onUpdatePaymentStatus: (payment: PaymentRecord, status: PaymentStatus) => void;
+}) {
+  if (!selectedMilestone) {
+    return (
+      <section className="rounded-3xl border border-slate-700 bg-slate-900/70 p-10 text-center">
+        <LayoutDashboard className="mx-auto h-10 w-10 text-slate-500" />
+        <h2 className="mt-4 text-xl font-black text-slate-100">
+          Select a milestone
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Go to Projects and open a milestone dashboard.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-50">
+            Dashboard: {selectedMilestone.name}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Flat 20% Management Split & Dynamic Team Pool
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Revenue LKR
+          </label>
+          <input
+            type="number"
+            disabled={selectedMilestoneIsCompleted}
+            value={selectedMilestone.revenue || ''}
+            onChange={(event) => onRevenueChange(Number(event.target.value) || 0)}
+            className="mt-1 w-64 bg-transparent text-2xl font-black text-blue-300 outline-none disabled:text-slate-500"
+          />
+        </div>
+      </div>
+
+      <MilestoneTaskNotification
+        selectedMilestoneIsCompleted={selectedMilestoneIsCompleted}
+        progress={milestoneTaskProgress}
+        onCompleteMilestone={onCompleteMilestone}
+      />
+
+      <div className="inline-flex rounded-2xl border border-slate-700/50 bg-slate-900/60 p-1">
+        <button
+          onClick={() => setDashboardMode('breakdown')}
+          className={`rounded-xl px-6 py-2 text-xs font-black ${
+            dashboardMode === 'breakdown'
+              ? 'bg-blue-500/20 text-blue-200'
+              : 'text-slate-400'
+          }`}
+        >
+          Milestone Breakdown
+        </button>
+
+        <button
+          onClick={() => setDashboardMode('disbursement')}
+          className={`rounded-xl px-6 py-2 text-xs font-black ${
+            dashboardMode === 'disbursement'
+              ? 'bg-blue-500/20 text-blue-200'
+              : 'text-slate-400'
+          }`}
+        >
+          Disbursement
+        </button>
+      </div>
+
+      {dashboardMode === 'breakdown' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-slate-50">
+              Financial Breakdown
+            </h2>
+
+            {selectedMilestone.status === 'completed' && (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200">
+                Completed
+              </span>
+            )}
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="rounded-3xl border border-slate-700/50 bg-slate-950 p-6 shadow-2xl shadow-black/20">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Total Bonus Pool (20%)
+                  </p>
+                  <h2 className="mt-2 text-3xl font-black text-slate-50">
+                    LKR {formatLKR(selectedPools.bonusPool)}
+                  </h2>
+                </div>
+
+                <div className="rounded-2xl bg-blue-500/15 p-3 text-blue-300">
+                  <WalletCards className="h-6 w-6" />
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-between border-t border-slate-700 pt-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <span>
+                  Mgmt: LKR {formatLKR(selectedPools.managementPool, 0)}
+                </span>
+                <span>Team: LKR {formatLKR(selectedPools.teamPool, 0)}</span>
+              </div>
+            </div>
+
+            <MoneyCard
+              title="Annual Contributions"
+              amount={selectedPools.annualContribution}
+              className="border-amber-400/20 bg-amber-500/10"
+            />
+
+            <MoneyCard
+              title="Unit Margin"
+              amount={selectedPools.unitMargin}
+              className="border-emerald-400/20 bg-emerald-500/10"
+            />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
+              <div className="flex items-center justify-between border-b border-slate-700/50 p-6">
+                <h3 className="flex items-center gap-2 text-lg font-black text-slate-50">
+                  <Crown className="h-5 w-5 text-amber-300" />
+                  Management Distribution
+                </h3>
+
+                <span className="rounded-full bg-amber-500/15 px-3 py-1 text-[10px] font-black uppercase text-amber-200">
+                  Flat Split
+                </span>
+              </div>
+
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-widest text-slate-400">
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4 text-right">Pending</th>
-                    <th className="px-6 py-4 text-right">Approved</th>
-                    <th className="px-6 py-4 text-right">Paid</th>
-                    <th className="px-6 py-4 text-right">Total Earned</th>
-                    <th className="px-6 py-4 text-right">
-                      This Month To Spend
-                    </th>
+                  <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+                    <th className="px-6 py-4">Stakeholder</th>
+                    <th className="px-6 py-4 text-right">Amount (LKR)</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100">
-                  {userEarnings.map((item) => (
-                    <tr key={item.userId}>
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">
-                          {item.name}
+                <tbody className="divide-y divide-slate-800">
+                  {(managerUsers.length > 0
+                    ? managerUsers
+                    : [{ id: 'none', name: 'No Name', email: '-' } as UserProfile]
+                  ).map((manager) => (
+                    <tr key={manager.id}>
+                      <td className="px-6 py-5">
+                        <div className="font-bold text-slate-100">
+                          {manager.name || 'No Name'}
                         </div>
-
-                        <div className="text-xs text-slate-400">
-                          {item.email}
+                        <div className="text-[10px] uppercase text-slate-500">
+                          {manager.email}
                         </div>
                       </td>
-
-                      <td className="px-6 py-4 text-right font-black text-amber-700">
-                        LKR {formatLKR(item.pending)}
-                      </td>
-
-                      <td className="px-6 py-4 text-right font-black text-blue-700">
-                        LKR {formatLKR(item.approved)}
-                      </td>
-
-                      <td className="px-6 py-4 text-right font-black text-emerald-700">
-                        LKR {formatLKR(item.paid)}
-                      </td>
-
-                      <td className="px-6 py-4 text-right font-black text-slate-900">
-                        LKR {formatLKR(item.total)}
-                      </td>
-
-                      <td className="px-6 py-4 text-right font-black text-indigo-700">
-                        LKR {formatLKR(item.thisMonthToSpend)}
+                      <td className="px-6 py-5 text-right text-lg font-black text-slate-50">
+                        {formatLKR(
+                          managerUsers.length > 0
+                            ? selectedPools.managementPool / managerUsers.length
+                            : selectedPools.managementPool
+                        )}
                       </td>
                     </tr>
                   ))}
-
-                  {userEarnings.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="p-10 text-center text-slate-400"
-                      >
-                        No earnings yet.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
-            </div>
-          </section>
+            </section>
 
-          <BonusFlowPanel
-            payments={payments}
-            onUpdatePaymentStatus={updatePaymentStatus}
+            <section className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-6">
+              <div className="mb-6 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-lg font-black text-slate-50">
+                  <Building2 className="h-5 w-5 text-blue-300" />
+                  Corporate Allocation
+                </h3>
+
+                <span className="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase text-slate-400">
+                  80% of Revenue
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <AllocationRow
+                  label="Project Expense (60%)"
+                  amount={selectedPools.projectExpense}
+                  color="bg-blue-400"
+                />
+                <AllocationRow
+                  label="Company Dev (20%)"
+                  amount={selectedPools.companyDev}
+                  color="bg-emerald-400"
+                />
+                <AllocationRow
+                  label="Capital Dev (10%)"
+                  amount={selectedPools.capitalDev}
+                  color="bg-indigo-400"
+                />
+              </div>
+            </section>
+          </div>
+
+          <OperationalTeamPool
+            selectedMilestone={selectedMilestone}
+            selectedMilestoneIsCompleted={selectedMilestoneIsCompleted}
+            milestoneCategories={milestoneCategories}
+            milestoneTasks={milestoneTasks}
+            categories={categories}
+            tasks={tasks}
+            normalUsers={normalUsers}
+            categoryName={categoryName}
+            categoryPoints={categoryPoints}
+            taskName={taskName}
+            taskPoints={taskPoints}
+            assignedUserId={assignedUserId}
+            selectedCategoryId={selectedCategoryId}
+            onCategoryNameChange={onCategoryNameChange}
+            onCategoryPointsChange={onCategoryPointsChange}
+            onTaskNameChange={onTaskNameChange}
+            onTaskPointsChange={onTaskPointsChange}
+            onAssignedUserChange={onAssignedUserChange}
+            onSelectedCategoryChange={onSelectedCategoryChange}
+            onAddCategory={onAddCategory}
+            onAddTask={onAddTask}
+            onRemoveCategory={onRemoveCategory}
+            onRemoveTask={onRemoveTask}
           />
         </div>
       )}
+
+      {dashboardMode === 'disbursement' && (
+        <div className="space-y-6">
+          <BonusFlowPanel
+            payments={milestonePayments}
+            onUpdatePaymentStatus={onUpdatePaymentStatus}
+            title="Global Disbursement Overview"
+            subtitle="Month-wise payment timeline for this milestone."
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MilestoneTaskNotification({
+  selectedMilestoneIsCompleted,
+  progress,
+  onCompleteMilestone,
+}: {
+  selectedMilestoneIsCompleted: boolean;
+  progress: {
+    totalTasks: number;
+    completedTasks: number;
+    activeTasks: number;
+    invalidTasks: number;
+    allTasksDone: boolean;
+    someTasksDone: boolean;
+    canComplete: boolean;
+  };
+  onCompleteMilestone: () => void;
+}) {
+  if (selectedMilestoneIsCompleted) {
+    return (
+      <div className="rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-6 text-emerald-200">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-1 h-6 w-6" />
+
+          <div>
+            <h3 className="font-black">Milestone completed</h3>
+            <p className="mt-1 text-sm opacity-80">
+              Payments were generated and the milestone is locked.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const cardClass = progress.allTasksDone
+    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+    : progress.someTasksDone
+      ? 'border-amber-400/30 bg-amber-500/10 text-amber-200'
+      : 'border-blue-400/30 bg-blue-500/10 text-blue-200';
+
+  return (
+    <div className={`rounded-3xl border p-6 ${cardClass}`}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          {progress.allTasksDone ? (
+            <CheckCircle2 className="mt-1 h-6 w-6" />
+          ) : progress.someTasksDone ? (
+            <BellRing className="mt-1 h-6 w-6" />
+          ) : (
+            <AlertCircle className="mt-1 h-6 w-6" />
+          )}
+
+          <div>
+            <h3 className="font-black">
+              {progress.totalTasks === 0 && 'No tasks added yet'}
+
+              {progress.totalTasks > 0 &&
+                progress.completedTasks === 0 &&
+                'Waiting for users to complete tasks'}
+
+              {progress.someTasksDone &&
+                `${progress.completedTasks}/${progress.totalTasks} tasks completed`}
+
+              {progress.allTasksDone &&
+                `All ${progress.totalTasks} tasks are completed`}
+            </h3>
+
+            <p className="mt-1 text-sm opacity-80">
+              {progress.totalTasks === 0 &&
+                'Add tasks and assign users before completing the milestone.'}
+
+              {progress.totalTasks > 0 &&
+                !progress.allTasksDone &&
+                'Admin can complete this milestone only after every assigned user clicks Done.'}
+
+              {progress.allTasksDone &&
+                'Milestone is ready. Click Complete Milestone to create 3 monthly payment installments.'}
+            </p>
+
+            {progress.invalidTasks > 0 && (
+              <p className="mt-2 text-sm font-black text-red-200">
+                {progress.invalidTasks} task(s) have missing user or invalid points.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button
+          disabled={!progress.canComplete}
+          onClick={onCompleteMilestone}
+          className="rounded-2xl bg-emerald-600 px-6 py-3 font-black text-white disabled:bg-slate-700 disabled:text-slate-400"
+        >
+          Complete Milestone ({progress.completedTasks}/{progress.totalTasks})
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AllocationRow({
+  label,
+  amount,
+  color,
+}: {
+  label: string;
+  amount: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl bg-slate-950/50 p-5">
+      <div className="flex items-center gap-4">
+        <span className={`h-9 w-2 rounded-full ${color}`} />
+        <span className="text-sm font-black uppercase text-slate-300">
+          {label}
+        </span>
+      </div>
+
+      <span className="text-lg font-black text-slate-50">
+        {formatLKR(amount)}
+      </span>
+    </div>
+  );
+}
+
+function OperationalTeamPool({
+  selectedMilestone,
+  selectedMilestoneIsCompleted,
+  milestoneCategories,
+  milestoneTasks,
+  categories,
+  tasks,
+  normalUsers,
+  categoryName,
+  categoryPoints,
+  taskName,
+  taskPoints,
+  assignedUserId,
+  selectedCategoryId,
+  onCategoryNameChange,
+  onCategoryPointsChange,
+  onTaskNameChange,
+  onTaskPointsChange,
+  onAssignedUserChange,
+  onSelectedCategoryChange,
+  onAddCategory,
+  onAddTask,
+  onRemoveCategory,
+  onRemoveTask,
+}: {
+  selectedMilestone: Milestone;
+  selectedMilestoneIsCompleted: boolean;
+  milestoneCategories: Category[];
+  milestoneTasks: Task[];
+  categories: Category[];
+  tasks: Task[];
+  normalUsers: UserProfile[];
+  categoryName: string;
+  categoryPoints: number;
+  taskName: string;
+  taskPoints: number;
+  assignedUserId: string;
+  selectedCategoryId: string;
+  onCategoryNameChange: (value: string) => void;
+  onCategoryPointsChange: (value: number) => void;
+  onTaskNameChange: (value: string) => void;
+  onTaskPointsChange: (value: number) => void;
+  onAssignedUserChange: (value: string) => void;
+  onSelectedCategoryChange: (value: string) => void;
+  onAddCategory: (event?: React.FormEvent) => void;
+  onAddTask: (categoryId?: string) => void;
+  onRemoveCategory: (category: Category) => void;
+  onRemoveTask: (task: Task) => void;
+}) {
+  const totalCategoryPoints = milestoneCategories.reduce(
+    (sum, item) => sum + Number(item.pts || 0),
+    0
+  );
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
+      <div className="flex flex-col gap-4 border-b border-slate-700/50 p-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 text-xl font-black text-slate-50">
+            <Users className="h-5 w-5 text-blue-300" />
+            Operational Team Pool
+          </h3>
+
+          <p className="mt-1 text-sm text-slate-400">
+            Distributing 60% of Bonus Pool based on effort points
+          </p>
+        </div>
+
+        {!selectedMilestoneIsCompleted && (
+          <button
+            onClick={() => onAddCategory()}
+            className="flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white"
+          >
+            <Plus className="h-4 w-4" />
+            Add Category
+          </button>
+        )}
+      </div>
+
+      {!selectedMilestoneIsCompleted && (
+        <div className="grid gap-3 border-b border-slate-700/50 bg-slate-950/30 p-5 md:grid-cols-[1fr_120px_1fr_120px_180px_auto]">
+          <input
+            value={categoryName}
+            onChange={(event) => onCategoryNameChange(event.target.value)}
+            placeholder="Category name"
+            className="h-11 rounded-xl border border-slate-700 px-3 text-sm"
+          />
+
+          <input
+            type="number"
+            value={categoryPoints || ''}
+            onChange={(event) =>
+              onCategoryPointsChange(Number(event.target.value) || 0)
+            }
+            placeholder="Cat Pts"
+            className="h-11 rounded-xl border border-slate-700 px-3 text-sm"
+          />
+
+          <input
+            value={taskName}
+            onChange={(event) => onTaskNameChange(event.target.value)}
+            placeholder="Task name"
+            className="h-11 rounded-xl border border-slate-700 px-3 text-sm"
+          />
+
+          <input
+            type="number"
+            value={taskPoints || ''}
+            onChange={(event) =>
+              onTaskPointsChange(Number(event.target.value) || 0)
+            }
+            placeholder="Task Pts"
+            className="h-11 rounded-xl border border-slate-700 px-3 text-sm"
+          />
+
+          <select
+            value={assignedUserId}
+            onChange={(event) => onAssignedUserChange(event.target.value)}
+            className="h-11 rounded-xl border border-slate-700 px-3 text-sm"
+          >
+            <option value="">Select user</option>
+            {normalUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name || user.email}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => onAddTask(selectedCategoryId)}
+            className="rounded-xl bg-indigo-600 px-4 text-sm font-black text-white"
+          >
+            Add Task
+          </button>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1000px] text-sm">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+              <th className="px-6 py-4">Category / Task</th>
+              <th className="px-6 py-4">Effort Points</th>
+              <th className="px-6 py-4">Share (%)</th>
+              <th className="px-6 py-4">User</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Bonus (LKR)</th>
+              <th className="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-800">
+            {milestoneCategories.map((category) => {
+              const categoryTasks = milestoneTasks.filter(
+                (task) => task.categoryId === category.id
+              );
+
+              const categoryShare =
+                totalCategoryPoints > 0
+                  ? (Number(category.pts || 0) / totalCategoryPoints) * 100
+                  : 0;
+
+              return (
+                <React.Fragment key={category.id}>
+                  <tr className="bg-slate-950/30">
+                    <td className="px-6 py-5">
+                      <button
+                        onClick={() => onSelectedCategoryChange(category.id)}
+                        className="mr-3 text-slate-500"
+                      >
+                        ›
+                      </button>
+
+                      <span className="font-black text-slate-50">
+                        {category.name}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-5 font-black text-slate-200">
+                      {category.pts}
+                    </td>
+
+                    <td className="px-6 py-5">
+                      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-black text-blue-200">
+                        {categoryShare.toFixed(1)}%
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-5">-</td>
+                    <td className="px-6 py-5">-</td>
+                    <td className="px-6 py-5 text-right">-</td>
+
+                    <td className="px-6 py-5 text-right">
+                      {!selectedMilestoneIsCompleted && (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => onAddTask(category.id)}
+                            className="rounded-xl p-2 text-blue-300 hover:bg-blue-500/10"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            onClick={() => onRemoveCategory(category)}
+                            className="rounded-xl p-2 text-red-300 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+
+                  {categoryTasks.map((task) => {
+                    const taskBonus = calculateTaskBonus({
+                      milestone: selectedMilestone,
+                      category,
+                      task,
+                      categories,
+                      tasks,
+                    });
+
+                    return (
+                      <tr key={task.id}>
+                        <td className="px-6 py-4 pl-16">
+                          <div className="font-bold text-slate-100">
+                            {task.name}
+                          </div>
+
+                          <div className="text-xs text-slate-500">
+                            {category.name}
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 font-black text-blue-300">
+                          {task.pts}
+                        </td>
+
+                        <td className="px-6 py-4">-</td>
+
+                        <td className="px-6 py-4 text-slate-300">
+                          {task.assignedUserName}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
+                              task.status === 'completed'
+                                ? 'bg-emerald-500/15 text-emerald-200'
+                                : 'bg-amber-500/15 text-amber-200'
+                            }`}
+                          >
+                            {task.status === 'completed' ? 'Done' : 'Pending'}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4 text-right font-black text-slate-50">
+                          {formatLKR(taskBonus)}
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                          {!task.locked && !selectedMilestoneIsCompleted && (
+                            <button
+                              onClick={() => onRemoveTask(task)}
+                              className="rounded-xl p-2 text-red-300 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+
+            {milestoneCategories.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-10 text-center text-slate-500">
+                  No categories/tasks yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function UsersPanel({ users }: { users: UserProfile[] }) {
+  return (
+    <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
+      <div className="border-b border-slate-700/50 p-6">
+        <SectionTitle
+          icon={<Users className="h-5 w-5" />}
+          title="Users"
+          subtitle="View users and manage manager/stakeholder flag."
+        />
+      </div>
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+            <th className="px-6 py-4">User</th>
+            <th className="px-6 py-4">Role</th>
+            <th className="px-6 py-4">Manager</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-slate-800">
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td className="px-6 py-4">
+                <div className="font-bold text-slate-100">{user.name}</div>
+                <div className="text-xs text-slate-500">{user.email}</div>
+              </td>
+
+              <td className="px-6 py-4">
+                <RoleBadge role={user.role} />
+              </td>
+
+              <td className="px-6 py-4">
+                <button
+                  onClick={() =>
+                    updateDoc(doc(db, 'users', user.id), {
+                      isManager: !user.isManager,
+                      updatedAt: serverTimestamp(),
+                    })
+                  }
+                  className={`rounded-xl px-4 py-2 text-xs font-black ${
+                    user.isManager
+                      ? 'bg-emerald-500/15 text-emerald-200'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {user.isManager ? 'Manager' : 'Normal User'}
+                </button>
+              </td>
+            </tr>
+          ))}
+
+          {users.length === 0 && (
+            <tr>
+              <td colSpan={3} className="p-10 text-center text-slate-500">
+                No users found.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function PaymentsPanel({
+  payments,
+  userEarnings,
+  paymentStats,
+  monthlySpendBudget,
+  monthlyRemaining,
+  setMonthlySpendBudget,
+  updatePaymentStatus,
+}: {
+  payments: PaymentRecord[];
+  userEarnings: {
+    userId: string;
+    name: string;
+    email: string;
+    pending: number;
+    approved: number;
+    paid: number;
+    total: number;
+    thisMonthToSpend: number;
+  }[];
+  paymentStats: {
+    pending: number;
+    approved: number;
+    paid: number;
+    thisMonthPending: number;
+    thisMonthApproved: number;
+    thisMonthPaid: number;
+    thisMonthNeedToSpend: number;
+  };
+  monthlySpendBudget: number;
+  monthlyRemaining: number;
+  setMonthlySpendBudget: (value: number) => void;
+  updatePaymentStatus: (payment: PaymentRecord, status: PaymentStatus) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <MoneyCard title="Pending" amount={paymentStats.pending} />
+        <MoneyCard title="Approved" amount={paymentStats.approved} />
+        <MoneyCard title="Paid" amount={paymentStats.paid} />
+      </div>
+
+      <section className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-6">
+        <SectionTitle
+          title="Monthly Spend Plan"
+          subtitle="Each task payment is split into 3 monthly installments."
+        />
+
+        <div className="mb-6 rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Monthly Budget LKR
+          </label>
+
+          <input
+            type="number"
+            value={monthlySpendBudget || ''}
+            onChange={(event) =>
+              setMonthlySpendBudget(Number(event.target.value) || 0)
+            }
+            className="mt-1 w-full bg-transparent text-2xl font-black text-blue-300 outline-none"
+            placeholder="0"
+          />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-5">
+          <MoneyCard
+            title="This Month Pending"
+            amount={paymentStats.thisMonthPending}
+          />
+
+          <MoneyCard
+            title="This Month Approved"
+            amount={paymentStats.thisMonthApproved}
+          />
+
+          <MoneyCard title="This Month Paid" amount={paymentStats.thisMonthPaid} />
+
+          <MoneyCard
+            title="Need To Spend"
+            amount={paymentStats.thisMonthNeedToSpend}
+          />
+
+          <MoneyCard
+            title={monthlyRemaining < 0 ? 'Over Budget' : 'Remaining'}
+            amount={Math.abs(monthlyRemaining)}
+          />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/80">
+        <div className="border-b border-slate-700/50 p-6">
+          <SectionTitle
+            icon={<Users className="h-5 w-5" />}
+            title="All Users Earnings"
+            subtitle="Admin can see every user's earned amount and this month spend amount."
+          />
+        </div>
+
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+              <th className="px-6 py-4">User</th>
+              <th className="px-6 py-4 text-right">Pending</th>
+              <th className="px-6 py-4 text-right">Approved</th>
+              <th className="px-6 py-4 text-right">Paid</th>
+              <th className="px-6 py-4 text-right">Total Earned</th>
+              <th className="px-6 py-4 text-right">This Month To Spend</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-800">
+            {userEarnings.map((item) => (
+              <tr key={item.userId}>
+                <td className="px-6 py-4">
+                  <div className="font-bold text-slate-100">{item.name}</div>
+                  <div className="text-xs text-slate-500">{item.email}</div>
+                </td>
+
+                <td className="px-6 py-4 text-right font-black text-amber-200">
+                  LKR {formatLKR(item.pending)}
+                </td>
+
+                <td className="px-6 py-4 text-right font-black text-blue-200">
+                  LKR {formatLKR(item.approved)}
+                </td>
+
+                <td className="px-6 py-4 text-right font-black text-emerald-200">
+                  LKR {formatLKR(item.paid)}
+                </td>
+
+                <td className="px-6 py-4 text-right font-black text-slate-50">
+                  LKR {formatLKR(item.total)}
+                </td>
+
+                <td className="px-6 py-4 text-right font-black text-indigo-200">
+                  LKR {formatLKR(item.thisMonthToSpend)}
+                </td>
+              </tr>
+            ))}
+
+            {userEarnings.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-10 text-center text-slate-500">
+                  No earnings yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      <BonusFlowPanel
+        payments={payments}
+        onUpdatePaymentStatus={updatePaymentStatus}
+        title="Bonus Flow"
+        subtitle="Aggregated month-wise installment view across all projects, milestones, tasks, and assignees."
+      />
     </div>
   );
 }

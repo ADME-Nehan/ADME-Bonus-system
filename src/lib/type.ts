@@ -30,9 +30,9 @@ export interface Milestone {
   name: string;
   revenue: number;
   status: MilestoneStatus;
-  createdAt?: unknown;
-  updatedAt?: unknown;
-  completedAt?: unknown;
+  createdAt?: any;
+  updatedAt?: any;
+  completedAt?: any;
 }
 
 export interface Category {
